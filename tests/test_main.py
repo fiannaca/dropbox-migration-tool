@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 from src.main import main, get_config
 import logging
+import os
 
 class TestConfig(unittest.TestCase):
     @patch('os.environ.get')
@@ -44,6 +45,10 @@ class TestMain(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         logging.disable(logging.NOTSET)
+
+    def tearDown(self):
+        if os.path.exists('migration.log'):
+            os.remove('migration.log')
 
     @patch('src.main.get_config', return_value=('test_key', 'test_secret'))
     @patch('src.main.setup_logger')
