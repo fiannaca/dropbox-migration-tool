@@ -76,6 +76,16 @@ class TestMain(unittest.TestCase):
         mock_save_dropbox_credentials.assert_called_once_with('new_token')
         MockMigration.assert_called_once()
 
+    @patch('src.main.get_config', return_value=('test_key', 'test_secret'))
+    @patch('src.main.setup_logger')
+    @patch('src.main.load_dropbox_credentials')
+    @patch('src.main.get_google_credentials')
+    @patch('src.main.Migration')
+    def test_main_with_src_and_dest_flags(self, MockMigration, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
+        mock_load_dropbox_credentials.return_value = 'test_token'
+        main(['--src', '/my_dropbox_path', '--dest', 'my_gdrive_path'])
+        MockMigration.assert_called_once_with('test_token', mock_get_google_credentials.return_value, src_path='/my_dropbox_path', dest_path='my_gdrive_path')
+
     def test_main_mutually_exclusive_flags(self):
         with self.assertRaises(SystemExit):
             main(['--test_run', '--interactive'])

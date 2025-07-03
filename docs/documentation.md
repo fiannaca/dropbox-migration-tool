@@ -105,6 +105,22 @@ python3 src/main.py
 
     *Note: `--test_run` and `--interactive` cannot be used at the same time.*
 
+*   `--src <path>`: Specifies a source directory in Dropbox. Only the contents of this directory will be migrated. For example, to migrate only the files in your Dropbox `/Apps/MyApp` folder, you would use:
+    ```bash
+    python3 src/main.py --src /Apps/MyApp
+    ```
+
+*   `--dest <path>`: Specifies a destination directory in Google Drive. Files will be migrated to this directory, preserving the source directory structure. For example, to migrate your files to a folder named `MyDropboxBackup` in your Google Drive, you would use:
+    ```bash
+    python3 src/main.py --dest MyDropboxBackup
+    ```
+    You can also specify a nested path:
+    ```bash
+    python3 src/main.py --dest Backups/MyDropboxBackup
+    ```
+
+    You can use `--src` and `--dest` together to migrate a specific Dropbox folder to a specific Google Drive folder.
+
 ## 4. Features
 
 ### 4.1. Resumable Migrations

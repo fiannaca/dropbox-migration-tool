@@ -175,5 +175,97 @@ class TestMigration(unittest.TestCase):
         # Check that save_state was called when skipping and quitting
         self.assertEqual(mock_save_state.call_count, 3) # 1 for migrated, 1 for skipped, 1 for quit
 
+class TestMigrationWithSrcDestFlags(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        logging.disable(logging.CRITICAL)
+
+    @classmethod
+    def tearDownClass(cls):
+        logging.disable(logging.NOTSET)
+
+    def tearDown(self):
+        if os.path.exists('migration_state.json'):
+            os.remove('migration_state.json')
+
+    @patch('src.migration.Migration._save_state')
+    @patch('src.migration.Migration._load_state')
+    @patch('os.remove')
+    @patch('src.migration.GoogleDriveClient')
+    @patch('src.migration.DropboxClient')
+    def test_migration_with_src_flag(self, MockDropboxClient, MockGoogleDriveClient, mock_os_remove, mock_load_state, mock_save_state):
+        mock_load_state.return_value = {'migrated_files': [], 'migrated_folders': {'/': None}, 'skipped_folders': []}
+        mock_dbx_client = MockDropboxClient.return_value
+        mock_dbx_client.list_files_and_folders.return_value = [
+            dropbox.files.FolderMetadata(name='Photos', path_display='/Apps/MyApp/Photos'),
+            dropbox.files.FileMetadata(name='image.jpg', path_display='/Apps/MyApp/Photos/image.jpg'),
+        ]
+        mock_dbx_client.download_file.return_value = True
+        mock_gdrive_client = MockGoogleDriveClient.return_value
+        mock_gdrive_client.find_file.return_value = []
+        mock_gdrive_client.create_folder.return_value = 'folder_id_123'
+        mock_gdrive_client.upload_file.return_value = 'file_id_456'
+
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/Apps/MyApp')
+        migration.start()
+
+        mock_dbx_client.list_files_and_folders.assert_called_once_with(path='/Apps/MyApp')
+        mock_gdrive_client.create_folder.assert_called_once_with('Photos', parent_id=None)
+        mock_gdrive_client.upload_file.assert_called_once_with('/tmp/image.jpg', 'image.jpg', folder_id='folder_id_123')
+
+    @patch('src.migration.Migration._save_state')
+    @patch('src.migration.Migration._load_state')
+    @patch('os.remove')
+    @patch('src.migration.GoogleDriveClient')
+    @patch('src.migration.DropboxClient')
+    def test_migration_with_dest_flag(self, MockDropboxClient, MockGoogleDriveClient, mock_os_remove, mock_load_state, mock_save_state):
+        mock_load_state.return_value = {'migrated_files': [], 'migrated_folders': {}, 'skipped_folders': []}
+        mock_dbx_client = MockDropboxClient.return_value
+        mock_dbx_client.list_files_and_folders.return_value = [
+            dropbox.files.FolderMetadata(name='Photos', path_display='/Photos'),
+            dropbox.files.FileMetadata(name='image.jpg', path_display='/Photos/image.jpg'),
+        ]
+        mock_dbx_client.download_file.return_value = True
+        mock_gdrive_client = MockGoogleDriveClient.return_value
+        mock_gdrive_client.find_or_create_folder_path.return_value = 'dest_folder_id'
+        mock_gdrive_client.find_file.return_value = []
+        mock_gdrive_client.create_folder.return_value = 'folder_id_123'
+        mock_gdrive_client.upload_file.return_value = 'file_id_456'
+
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', dest_path='MyCoolFolder/Backup')
+        migration.start()
+
+        mock_gdrive_client.find_or_create_folder_path.assert_called_once_with('MyCoolFolder/Backup')
+        mock_gdrive_client.create_folder.assert_called_once_with('Photos', parent_id='dest_folder_id')
+        mock_gdrive_client.upload_file.assert_called_once_with('/tmp/image.jpg', 'image.jpg', folder_id='folder_id_123')
+
+    @patch('src.migration.Migration._save_state')
+    @patch('src.migration.Migration._load_state')
+    @patch('os.remove')
+    @patch('src.migration.GoogleDriveClient')
+    @patch('src.migration.DropboxClient')
+    def test_migration_with_src_and_dest_flags(self, MockDropboxClient, MockGoogleDriveClient, mock_os_remove, mock_load_state, mock_save_state):
+        mock_load_state.return_value = {'migrated_files': [], 'migrated_folders': {}, 'skipped_folders': []}
+        mock_dbx_client = MockDropboxClient.return_value
+        mock_dbx_client.list_files_and_folders.return_value = [
+            dropbox.files.FolderMetadata(name='Photos', path_display='/Apps/MyApp/Photos'),
+            dropbox.files.FileMetadata(name='image.jpg', path_display='/Apps/MyApp/Photos/image.jpg'),
+        ]
+        mock_dbx_client.download_file.return_value = True
+        mock_gdrive_client = MockGoogleDriveClient.return_value
+        mock_gdrive_client.find_or_create_folder_path.return_value = 'dest_folder_id'
+        mock_gdrive_client.find_file.return_value = []
+        mock_gdrive_client.create_folder.return_value = 'folder_id_123'
+        mock_gdrive_client.upload_file.return_value = 'file_id_456'
+
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/Apps/MyApp', dest_path='MyCoolFolder/Backup')
+        migration.start()
+
+        mock_dbx_client.list_files_and_folders.assert_called_once_with(path='/Apps/MyApp')
+        mock_gdrive_client.find_or_create_folder_path.assert_called_once_with('MyCoolFolder/Backup')
+        mock_gdrive_client.create_folder.assert_called_once_with('Photos', parent_id='dest_folder_id')
+        mock_gdrive_client.upload_file.assert_called_once_with('/tmp/image.jpg', 'image.jpg', folder_id='folder_id_123')
+
 if __name__ == '__main__':
     unittest.main()

@@ -73,3 +73,20 @@ class GoogleDriveClient:
         except HttpError as e:
             logging.error(f"An error occurred while uploading file '{file_name}': {e}")
             raise e
+
+    def find_or_create_folder_path(self, path):
+        """
+        Finds or creates a nested folder structure and returns the ID of the last folder.
+        """
+        current_parent_id = None
+        for folder_name in path.split('/'):
+            if not folder_name:
+                continue
+            
+            existing_folders = self.find_file(folder_name, parent_id=current_parent_id)
+            if existing_folders:
+                current_parent_id = existing_folders[0]['id']
+            else:
+                current_parent_id = self.create_folder(folder_name, parent_id=current_parent_id)
+        
+        return current_parent_id

@@ -58,3 +58,5 @@ This utility helps you migrate your files and folders from Dropbox to Google Dri
     **Optional Flags:**
     *   `--test_run`: Migrates the first 10 files, pausing for confirmation after each one.
     *   `--interactive`: Prompts for confirmation before migrating each folder.
+    *   `--src <path>`: Specifies a source directory in Dropbox. Only the contents of this directory will be migrated.
+    *   `--dest <path>`: Specifies a destination directory in Google Drive. Files will be migrated to this directory, preserving the source directory structure.

@@ -6,9 +6,11 @@ from src.dropbox_client import DropboxClient
 from src.google_drive_client import GoogleDriveClient
 
 class Migration:
-    def __init__(self, dropbox_token, google_credentials, state_file='migration_state.json'):
+    def __init__(self, dropbox_token, google_credentials, src_path=None, dest_path=None, state_file='migration_state.json'):
         self.dropbox_client = DropboxClient(dropbox_token)
         self.google_drive_client = GoogleDriveClient(google_credentials)
+        self.src_path = src_path
+        self.dest_path = dest_path
         self.state_file = state_file
         self.state = self._load_state()
 
@@ -32,27 +34,32 @@ class Migration:
             logging.info("Starting interactive migration...")
         else:
             logging.info("Starting migration...")
-        
-        dropbox_items = self.dropbox_client.list_files_and_folders()
+
+        dest_folder_id = None
+        if self.dest_path:
+            dest_folder_id = self.google_drive_client.find_or_create_folder_path(self.dest_path)
+            self.state['migrated_folders'][self.dest_path] = dest_folder_id
+
+        dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '')
 
         if not dropbox_items:
             logging.info("No items to migrate.")
             return
 
-        if self._migrate_folders(dropbox_items, interactive=interactive) is False:
+        if self._migrate_folders(dropbox_items, interactive=interactive, dest_folder_id=dest_folder_id) is False:
             # User chose to quit
             return
 
         files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
         
         if test_run:
-            self._migrate_files(files_to_migrate[:10], test_run=True)
+            self._migrate_files(files_to_migrate[:10], test_run=True, dest_folder_id=dest_folder_id)
         else:
-            self._migrate_files(files_to_migrate)
+            self._migrate_files(files_to_migrate, dest_folder_id=dest_folder_id)
 
         logging.info("Migration complete.")
 
-    def _migrate_folders(self, items, interactive=False):
+    def _migrate_folders(self, items, interactive=False, dest_folder_id=None):
         """Migrates folders from Dropbox to Google Drive, preserving hierarchy."""
         folders = [item for item in items if isinstance(item, dropbox.files.FolderMetadata)]
         # Sort folders by path depth to ensure parents are created before children
@@ -82,11 +89,24 @@ class Migration:
                     self._save_state()
                     return False
 
-            parent_path = os.path.dirname(folder.path_display)
-            if parent_path == '/':
-                parent_path = '/' 
-            
+            parent_dropbox_path = os.path.dirname(folder.path_display)
+            if self.src_path and parent_dropbox_path.startswith(self.src_path):
+                 # Make parent path relative to src_path
+                relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
+                if relative_parent_path == '.':
+                    parent_path = self.dest_path or '/'
+                else:
+                    parent_path = os.path.join(self.dest_path or '/', relative_parent_path)
+            else:
+                parent_path = parent_dropbox_path
+
             parent_id = self.state['migrated_folders'].get(parent_path)
+
+            if parent_id is None:
+                if self.dest_path:
+                    parent_id = self.state['migrated_folders'].get(self.dest_path)
+                elif parent_path == '/':
+                    parent_id = self.state['migrated_folders'].get('/')
 
             existing_folders = self.google_drive_client.find_file(folder.name, parent_id=parent_id)
             if existing_folders:
@@ -96,19 +116,40 @@ class Migration:
                 folder_id = self.google_drive_client.create_folder(folder.name, parent_id=parent_id)
 
             if folder_id:
-                self.state['migrated_folders'][folder.path_display] = folder_id
+                if self.src_path:
+                    relative_folder_path = os.path.relpath(folder.path_display, self.src_path)
+                    migrated_path = os.path.join(self.dest_path or '/', relative_folder_path)
+                else:
+                    migrated_path = folder.path_display
+
+                self.state['migrated_folders'][migrated_path] = folder_id
+                self.state['migrated_folders'][folder.path_display] = folder_id # Keep original path for file lookup
                 self._save_state()
 
-    def _migrate_files(self, files, test_run=False):
+    def _migrate_files(self, files, test_run=False, dest_folder_id=None):
         """Migrates files from Dropbox to Google Drive."""
         for file in files:
             if file.path_display not in self.state['migrated_files']:
-                parent_path = os.path.dirname(file.path_display)
-                if parent_path == '/':
-                    parent_path = '/'
-
-                parent_folder_id = self.state['migrated_folders'].get(parent_path)
+                parent_dropbox_path = os.path.dirname(file.path_display)
                 
+                if self.src_path:
+                    # When src_path is provided, find the parent folder ID based on the relative path
+                    relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
+                    if relative_parent_path == '.':
+                        migrated_parent_path = self.dest_path or '/'
+                    else:
+                        migrated_parent_path = os.path.join(self.dest_path or '/', relative_parent_path)
+                else:
+                    migrated_parent_path = parent_dropbox_path
+
+                parent_folder_id = self.state['migrated_folders'].get(migrated_parent_path)
+
+                if parent_folder_id is None:
+                    if self.dest_path:
+                        parent_folder_id = self.state['migrated_folders'].get(self.dest_path)
+                    elif migrated_parent_path == '/':
+                        parent_folder_id = self.state['migrated_folders'].get('/')
+
                 existing_files = self.google_drive_client.find_file(file.name, parent_id=parent_folder_id)
                 
                 if existing_files:
