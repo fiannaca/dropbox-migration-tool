@@ -15,6 +15,7 @@ title: Home
         <li><strong>Conflict Resolution:</strong> Intelligently handles cases where files or folders with the same name already exist in the destination.</li>
         <li><strong>Interactive Mode:</strong> An optional <code>--interactive</code> flag allows you to confirm the migration for each folder.</li>
         <li><strong>Test Runs:</strong> An optional <code>--test_run</code> flag lets you perform a dry run on a small batch of files.</li>
+        <li><strong>Targeted Migration:</strong> Use the <code>--src</code> and <code>--dest</code> flags to migrate specific folders to a chosen location in Google Drive.</li>
         <li><strong>Robust Error Handling:</strong> Automatically retries on common API errors like rate limiting.</li>
     </ul>
 </section>
@@ -69,7 +70,16 @@ python3 src/main.py
 python3 src/main.py --test_run
 
 # For an interactive run with folder-by-folder confirmation
-python3 src/main.py --interactive</code></pre>
+python3 src/main.py --interactive
+
+# To migrate a specific folder from Dropbox
+python3 src/main.py --src /path/to/your/dropbox/folder
+
+# To migrate to a specific folder in Google Drive
+python3 src/main.py --dest "My Drive Folder/Subfolder"
+
+# Combine flags for a targeted migration
+python3 src/main.py --src /Photos/2023 --dest "Vacation Photos"</code></pre>
 </section>
 
 <section id="faq">
