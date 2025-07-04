@@ -48,6 +48,14 @@ class TestGoogleDriveClient(unittest.TestCase):
         self.assertEqual(len(files), 1)
         self.assertEqual(files[0]['id'], 'file_id_123')
 
+    def test_find_file_with_single_quote(self):
+        self.client.find_file("My 'File'.txt")
+        self.mock_service.files().list.assert_called_with(
+            q="name = 'My \'File\'.txt' and 'root' in parents",
+            spaces='drive',
+            fields='files(id, name)'
+        )
+
     def test_find_file_failure(self):
         self.mock_service.files().list().execute.side_effect = Exception('Test Error')
         with self.assertRaises(Exception):

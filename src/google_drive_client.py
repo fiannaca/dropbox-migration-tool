@@ -38,6 +38,8 @@ class GoogleDriveClient:
         """
         Finds a file or folder by name in a specific parent folder.
         """
+        # Escape single quotes in the file name
+        name = name.replace("'", "\'")
         query = f"name = '{name}'"
         if parent_id:
             query += f" and '{parent_id}' in parents"

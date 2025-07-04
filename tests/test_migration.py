@@ -129,6 +129,31 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client.upload_file.assert_any_call(unittest.mock.ANY, 'document2 (1).txt', folder_id=None)
         self.assertEqual(mock_input.call_count, 3)
 
+    @patch('builtins.input', return_value='y')
+    @patch('src.migration.tqdm')
+    @patch('src.migration.Migration._save_state')
+    @patch('src.migration.Migration._load_state')
+    @patch('os.remove')
+    @patch('src.migration.GoogleDriveClient')
+    @patch('src.migration.DropboxClient')
+    def test_failed_file_is_reported(self, MockDropboxClient, MockGoogleDriveClient, mock_os_remove, mock_load_state, mock_save_state, mock_tqdm, mock_input):
+        mock_load_state.return_value = self.mock_state
+        mock_dbx_client = MockDropboxClient.return_value
+        mock_dbx_client.list_files_and_folders.return_value = [
+            dropbox.files.FileMetadata(name='good_file.txt', path_display='/good_file.txt', size=100),
+            dropbox.files.FileMetadata(name='bad_file.txt', path_display='/bad_file.txt', size=100),
+        ]
+        mock_dbx_client.download_file.side_effect = [True, Exception("Download failed")]
+        mock_gdrive_client = MockGoogleDriveClient.return_value
+        mock_gdrive_client.find_file.return_value = []
+        mock_gdrive_client.upload_file.return_value = 'file_id'
+
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
+        migration.start()
+
+        self.assertEqual(migration.migrated_in_session, 1)
+        self.assertIn('/bad_file.txt', migration.failed_files)
+
     @patch('builtins.print')
     @patch('src.migration.Migration._load_state')
     @patch('src.migration.GoogleDriveClient')

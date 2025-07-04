@@ -16,6 +16,7 @@ class Migration:
         self.state = self._load_state()
         self.total_files_to_migrate = 0
         self.migrated_in_session = 0
+        self.failed_files = []
         self.conflict_resolution_strategy = None
 
     def _load_state(self):
@@ -23,7 +24,7 @@ class Migration:
         if os.path.exists(self.state_file):
             with open(self.state_file, 'r') as f:
                 return json.load(f)
-        return {'migrated_files': [], 'skipped_files': [], 'migrated_folders': {'/': None}, 'skipped_folders': []}
+        return {'migrated_files': [], 'skipped_files': [], 'failed_files': [], 'migrated_folders': {'/': None}, 'skipped_folders': []}
 
     def _save_state(self):
         """Saves the migration state to a file."""
@@ -107,10 +108,13 @@ class Migration:
         summary = (
             f"--- Migration Session Summary ---\n"
             f"Migrated this session: {self.migrated_in_session}\n"
+            f"Failed this session: {len(self.failed_files)}\n"
             f"Remaining to migrate: {remaining_files}\n"
             f"Total migrated: {len(self.state['migrated_files'])}\n"
             f"---------------------------------"
         )
+        if self.failed_files:
+            summary += "\nFailed files:\n" + "\n".join(self.failed_files)
         logging.info(summary)
         print(summary)
 
@@ -240,54 +244,60 @@ class Migration:
         """Migrates files from Dropbox to Google Drive."""
         migrated_count = 0
         for file in files:
-            if limit is not None and migrated_count >= limit:
-                logging.info(f"Reached migration limit of {limit} files.")
-                break
+            try:
+                if limit is not None and migrated_count >= limit:
+                    logging.info(f"Reached migration limit of {limit} files.")
+                    break
 
-            if file.path_display not in self.state['migrated_files']:
-                pbar.set_description(f"Downloading {file.name} ({file.size / 1e6:.2f} MB)")
-                parent_dropbox_path = os.path.dirname(file.path_display)
-                
-                if self.src_path:
-                    relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
-                    if relative_parent_path == '.':
-                        migrated_parent_path = self.dest_path or '/'
+                if file.path_display not in self.state['migrated_files']:
+                    pbar.set_description(f"Downloading {file.name} ({file.size / 1e6:.2f} MB)")
+                    parent_dropbox_path = os.path.dirname(file.path_display)
+                    
+                    if self.src_path:
+                        # When src_path is provided, find the parent folder ID based on the relative path
+                        relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
+                        if relative_parent_path == '.':
+                            migrated_parent_path = self.dest_path or '/'
+                        else:
+                            migrated_parent_path = os.path.join(self.dest_path or '/', relative_parent_path)
                     else:
-                        migrated_parent_path = os.path.join(self.dest_path or '/', relative_parent_path)
-                else:
-                    migrated_parent_path = parent_dropbox_path
+                        migrated_parent_path = parent_dropbox_path
 
-                parent_folder_id = self.state['migrated_folders'].get(migrated_parent_path)
+                    parent_folder_id = self.state['migrated_folders'].get(migrated_parent_path)
 
-                if parent_folder_id is None:
-                    if self.dest_path:
-                        parent_folder_id = self.state['migrated_folders'].get(self.dest_path)
-                    elif migrated_parent_path == '/':
-                        parent_folder_id = self.state['migrated_folders'].get('/')
+                    if parent_folder_id is None:
+                        if self.dest_path:
+                            parent_folder_id = self.state['migrated_folders'].get(self.dest_path)
+                        elif migrated_parent_path == '/':
+                            parent_folder_id = self.state['migrated_folders'].get('/')
 
-                existing_files = self.google_drive_client.find_file(file.name, parent_id=parent_folder_id)
-                
-                if existing_files:
-                    action = self.conflict_resolution_strategy or self._handle_file_conflict(file, parent_folder_id)
-                    if action == 'skip':
-                        if file.path_display not in self.state['skipped_files']:
-                            self.state['skipped_files'].append(file.path_display)
+                    existing_files = self.google_drive_client.find_file(file.name, parent_id=parent_folder_id)
+                    
+                    if existing_files:
+                        action = self.conflict_resolution_strategy or self._handle_file_conflict(file, parent_folder_id)
+                        if action == 'skip':
+                            if file.path_display not in self.state['skipped_files']:
+                                self.state['skipped_files'].append(file.path_display)
+                                self._save_state()
+                            pbar.update(file.size)
+                            continue
+                        elif action == 'rename':
+                            file.name = self._get_unique_name(file.name, parent_folder_id)
+                    
+                    local_path = f"/tmp/{file.name}"
+                    if self.dropbox_client.download_file(file.path_display, local_path):
+                        pbar.set_description(f"Uploading {file.name} ({file.size / 1e6:.2f} MB)")
+                        file_id = self.google_drive_client.upload_file(local_path, file.name, folder_id=parent_folder_id)
+                        if file_id:
+                            self.state['migrated_files'].append(file.path_display)
                             self._save_state()
-                        pbar.update(file.size)
-                        continue
-                    elif action == 'rename':
-                        file.name = self._get_unique_name(file.name, parent_folder_id)
-                
-                local_path = f"/tmp/{file.name}"
-                if self.dropbox_client.download_file(file.path_display, local_path):
-                    pbar.set_description(f"Uploading {file.name} ({file.size / 1e6:.2f} MB)")
-                    file_id = self.google_drive_client.upload_file(local_path, file.name, folder_id=parent_folder_id)
-                    if file_id:
-                        self.state['migrated_files'].append(file.path_display)
-                        self._save_state()
-                        migrated_count += 1
-                        pbar.update(file.size)
-                    os.remove(local_path)
+                            migrated_count += 1
+                            pbar.update(file.size)
+                        os.remove(local_path)
+            except Exception as e:
+                logging.error(f"Failed to migrate {file.path_display}: {e}")
+                self.failed_files.append(file.path_display)
+                pbar.update(file.size) # Still update the progress bar
         return migrated_count
 
     def _handle_file_conflict(self, file, parent_folder_id):
