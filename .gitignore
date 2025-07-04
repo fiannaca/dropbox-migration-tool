@@ -1,2 +1,20 @@
+# Configuration files
+config.ini
+google_credentials.json
+google_token.json
+dropbox_credentials.json
+migration_state.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Log files
+*.log
+
+# MacOS files
+.DS_Store
+
+# Jekyll files
 _site/
 .jekyll-cache/
