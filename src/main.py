@@ -4,8 +4,9 @@ import os
 import configparser
 import sys
 import dropbox
-from src.dropbox_auth import get_access_token as get_dropbox_token, save_credentials as save_dropbox_credentials, load_credentials as load_dropbox_credentials, CREDENTIALS_FILE
-from src.google_drive_auth import get_credentials as get_google_credentials
+from google.auth.exceptions import RefreshError
+from src.dropbox_auth import get_access_token as get_dropbox_token, save_credentials as save_dropbox_credentials, load_credentials as load_dropbox_credentials, CREDENTIALS_FILE as DROPBOX_CREDENTIALS_FILE
+from src.google_drive_auth import get_credentials as get_google_credentials, CREDENTIALS_PATH as GOOGLE_CREDENTIALS_PATH
 from src.migration import Migration
 from src.logger_config import setup_logger
 
@@ -70,8 +71,8 @@ def main(argv=None):
         except dropbox.exceptions.AuthError as e:
             if 'expired_access_token' in str(e):
                 logging.warning("Dropbox access token has expired. Attempting to re-authenticate.")
-                if os.path.exists(CREDENTIALS_FILE):
-                    os.remove(CREDENTIALS_FILE)
+                if os.path.exists(DROPBOX_CREDENTIALS_FILE):
+                    os.remove(DROPBOX_CREDENTIALS_FILE)
                 
                 dropbox_token = get_dropbox_token(dropbox_app_key, dropbox_app_secret)
                 if dropbox_token:
@@ -82,6 +83,17 @@ def main(argv=None):
                     break
             else:
                 logging.error(f"An unexpected Dropbox authentication error occurred: {e}")
+                break
+        except RefreshError:
+            logging.warning("Google Drive access token has expired. Attempting to re-authenticate.")
+            if os.path.exists(GOOGLE_CREDENTIALS_PATH):
+                os.remove(GOOGLE_CREDENTIALS_PATH)
+            
+            google_creds = get_google_credentials()
+            if google_creds:
+                logging.info("Google Drive re-authentication successful. Resuming migration.")
+            else:
+                logging.error("Google Drive re-authentication failed. Exiting.")
                 break
         except KeyboardInterrupt:
             logging.info("\nMigration interrupted by user.")

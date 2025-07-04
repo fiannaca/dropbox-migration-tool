@@ -137,3 +137,34 @@ class TestMain(unittest.TestCase):
 
         # Verify that the summary is logged
         mock_migration_instance.log_migration_summary.assert_called_once()
+
+    @patch('src.main.get_config', return_value=('test_key', 'test_secret'))
+    @patch('src.main.setup_logger')
+    @patch('src.main.load_dropbox_credentials')
+    @patch('src.main.get_google_credentials')
+    @patch('os.remove')
+    @patch('src.main.Migration')
+    def test_main_reauthentication_on_google_refresh_error(self, MockMigration, mock_os_remove, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
+        from google.auth.exceptions import RefreshError
+
+        # First call to Migration raises RefreshError, second call succeeds
+        MockMigration.side_effect = [
+            RefreshError(),
+            MagicMock()
+        ]
+        mock_load_dropbox_credentials.return_value = 'test_token'
+        # First call to get_google_credentials returns existing (but expired) creds
+        # Second call will re-authenticate and return new creds
+        mock_get_google_credentials.side_effect = [
+            'expired_creds',
+            'new_creds'
+        ]
+
+        main([])
+
+        # Verify that the credentials file was removed
+        mock_os_remove.assert_called_once_with('google_credentials.json')
+        # Verify that get_google_credentials was called twice
+        self.assertEqual(mock_get_google_credentials.call_count, 2)
+        # Verify that Migration was called twice
+        self.assertEqual(MockMigration.call_count, 2)
