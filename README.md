@@ -52,7 +52,7 @@ This utility helps you migrate your files and folders from Dropbox to Google Dri
 
 4.  **Run the migration:**
     ```bash
-    python3 src/main.py
+    python3 -m src.main
     ```
 
     **Optional Flags:**

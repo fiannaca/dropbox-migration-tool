@@ -78,7 +78,7 @@ The tool will automatically use the `google_credentials.json` file you created.
 The tool is run from the command line:
 
 ```bash
-python3 src/main.py [OPTIONS]
+python3 -m src.main [OPTIONS]
 ```
 
 ### 3.1. Standard Migration
@@ -86,7 +86,7 @@ python3 src/main.py [OPTIONS]
 To run a full migration of all your files and folders, simply run:
 
 ```bash
-python3 src/main.py
+python3 -m src.main
 ```
 
 ### 3.2. Command-Line Options
@@ -94,29 +94,29 @@ python3 src/main.py
 *   `--test_run`: Use this flag to perform a test run with the first 10 unmigrated files. The tool will pause for confirmation after each file transfer.
 
     ```bash
-    python3 src/main.py --test_run
+    python3 -m src.main --test_run
     ```
 
 *   `--interactive`: Use this flag to run the migration in an interactive mode. The tool will pause before migrating each folder, list the files inside it, and ask for your confirmation to proceed, skip, or quit.
 
     ```bash
-    python3 src/main.py --interactive
+    python3 -m src.main --interactive
     ```
 
     *Note: `--test_run` and `--interactive` cannot be used at the same time.*
 
 *   `--src <path>`: Specifies a source directory in Dropbox. Only the contents of this directory will be migrated. For example, to migrate only the files in your Dropbox `/Apps/MyApp` folder, you would use:
     ```bash
-    python3 src/main.py --src /Apps/MyApp
+    python3 -m src.main --src /Apps/MyApp
     ```
 
 *   `--dest <path>`: Specifies a destination directory in Google Drive. Files will be migrated to this directory, preserving the source directory structure. For example, to migrate your files to a folder named `MyDropboxBackup` in your Google Drive, you would use:
     ```bash
-    python3 src/main.py --dest MyDropboxBackup
+    python3 -m src.main --dest MyDropboxBackup
     ```
     You can also specify a nested path:
     ```bash
-    python3 src/main.py --dest Backups/MyDropboxBackup
+    python3 -m src.main --dest Backups/MyDropboxBackup
     ```
 
     You can use `--src` and `--dest` together to migrate a specific Dropbox folder to a specific Google Drive folder.
