@@ -62,8 +62,13 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client.upload_file.assert_any_call('/tmp/document.txt', 'document.txt', folder_id=None)
         mock_gdrive_client.upload_file.assert_any_call('/tmp/image.jpg', 'image.jpg', folder_id='folder_id_123')
         
-        # Check that tqdm was used
-        mock_tqdm.assert_called_once()
+        # Check that tqdm was used with the correct total size
+        mock_tqdm.assert_called_with(total=300, unit='B', unit_scale=True, desc="Migrating files")
+        
+        # Check that the progress bar was updated with the correct byte sizes
+        pbar = mock_tqdm.return_value.__enter__.return_value
+        pbar.update.assert_any_call(100)
+        pbar.update.assert_any_call(200)
 
     @patch('builtins.input', return_value='y')
     @patch('src.migration.Migration._save_state')
