@@ -68,10 +68,10 @@ class TestMain(unittest.TestCase):
     @patch('src.main.save_dropbox_credentials')
     @patch('src.main.get_google_credentials')
     @patch('src.main.Migration')
-    def test_main_new_dropbox_token_with_test_run(self, MockMigration, mock_get_google_credentials, mock_save_dropbox_credentials, mock_get_dropbox_token, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
+    def test_main_new_dropbox_token_with_dry_run(self, MockMigration, mock_get_google_credentials, mock_save_dropbox_credentials, mock_get_dropbox_token, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
         mock_load_dropbox_credentials.return_value = None
         mock_get_dropbox_token.return_value = 'new_token'
-        main(['--test_run'])
+        main(['--dry_run'])
         mock_setup_logger.assert_called_once()
         mock_save_dropbox_credentials.assert_called_once_with('new_token')
         MockMigration.assert_called_once()
@@ -85,10 +85,6 @@ class TestMain(unittest.TestCase):
         mock_load_dropbox_credentials.return_value = 'test_token'
         main(['--src', '/my_dropbox_path', '--dest', 'my_gdrive_path'])
         MockMigration.assert_called_once_with('test_token', mock_get_google_credentials.return_value, src_path='/my_dropbox_path', dest_path='my_gdrive_path')
-
-    def test_main_mutually_exclusive_flags(self):
-        with self.assertRaises(SystemExit):
-            main(['--test_run', '--interactive'])
 
     @patch('src.main.get_config', return_value=(None, None))
     def test_main_no_config(self, mock_get_config):

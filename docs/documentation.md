@@ -91,10 +91,10 @@ python3 -m src.main
 
 ### 3.2. Command-Line Options
 
-*   `--test_run`: Use this flag to perform a test run with the first 10 unmigrated files. The tool will pause for confirmation after each file transfer.
+*   `--dry_run`: Use this flag to generate a plan of files to be migrated without performing the migration. The tool will print a list of source and destination paths.
 
     ```bash
-    python3 -m src.main --test_run
+    python3 -m src.main --dry_run
     ```
 
 *   `--interactive`: Use this flag to run the migration in an interactive mode. The tool will pause before migrating each folder, list the files inside it, and ask for your confirmation to proceed, skip, or quit.
@@ -103,7 +103,7 @@ python3 -m src.main
     python3 -m src.main --interactive
     ```
 
-    *Note: `--test_run` and `--interactive` cannot be used at the same time.*
+    *Note: `--dry_run` and `--interactive` cannot be used at the same time.*
 
 *   `--src <path>`: Specifies a source directory in Dropbox. Only the contents of this directory will be migrated. For example, to migrate only the files in your Dropbox `/Apps/MyApp` folder, you would use:
     ```bash

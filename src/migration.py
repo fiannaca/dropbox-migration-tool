@@ -26,11 +26,14 @@ class Migration:
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f, indent=4)
 
-    def start(self, test_run=False, interactive=False):
+    def start(self, dry_run=False, interactive=False, limit=None):
         """Starts the migration process."""
-        if test_run:
-            logging.info("Starting test run...")
-        elif interactive:
+        if dry_run:
+            logging.info("Generating migration plan (dry run)...")
+            self._generate_migration_plan(limit=limit)
+            return
+
+        if interactive:
             logging.info("Starting interactive migration...")
         else:
             logging.info("Starting migration...")
@@ -52,12 +55,44 @@ class Migration:
 
         files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
         
-        if test_run:
-            self._migrate_files(files_to_migrate[:10], test_run=True, dest_folder_id=dest_folder_id)
-        else:
-            self._migrate_files(files_to_migrate, dest_folder_id=dest_folder_id)
+        self._migrate_files(files_to_migrate, dest_folder_id=dest_folder_id, limit=limit)
 
         logging.info("Migration complete.")
+
+    def _generate_migration_plan(self, limit=None):
+        """Generates and prints a plan of files to be migrated."""
+        dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '')
+        files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
+
+        if not files_to_migrate:
+            print("No files to migrate.")
+            return
+
+        if limit is None and len(files_to_migrate) > 100:
+            print(f"Warning: This will print a plan for {len(files_to_migrate)} files.")
+            choice = input("Do you want to continue? (y/n): ").lower()
+            if choice != 'y':
+                print("Operation cancelled.")
+                return
+        
+        for i, file in enumerate(files_to_migrate):
+            if limit is not None and i >= limit:
+                break
+            
+            dest_path = self._get_destination_path(file)
+            print(f"dropbox:{file.path_display} -> gdrive:{dest_path}")
+
+    def _get_destination_path(self, file):
+        """Calculates the destination path in Google Drive for a given file."""
+        if self.src_path:
+            relative_path = os.path.relpath(file.path_display, self.src_path)
+        else:
+            relative_path = file.path_display.lstrip('/')
+
+        if self.dest_path:
+            return os.path.join(self.dest_path, relative_path)
+        else:
+            return relative_path
 
     def _migrate_folders(self, items, interactive=False, dest_folder_id=None):
         """Migrates folders from Dropbox to Google Drive, preserving hierarchy."""
@@ -126,9 +161,14 @@ class Migration:
                 self.state['migrated_folders'][folder.path_display] = folder_id # Keep original path for file lookup
                 self._save_state()
 
-    def _migrate_files(self, files, test_run=False, dest_folder_id=None):
+    def _migrate_files(self, files, dest_folder_id=None, limit=None):
         """Migrates files from Dropbox to Google Drive."""
+        migrated_count = 0
         for file in files:
+            if limit is not None and migrated_count >= limit:
+                logging.info(f"Reached migration limit of {limit} files.")
+                break
+
             if file.path_display not in self.state['migrated_files']:
                 parent_dropbox_path = os.path.dirname(file.path_display)
                 
@@ -166,10 +206,8 @@ class Migration:
                     if file_id:
                         self.state['migrated_files'].append(file.path_display)
                         self._save_state()
+                        migrated_count += 1
                     os.remove(local_path)
-                
-                if test_run:
-                    input("Press Enter to continue to the next file...")
 
     def _handle_file_conflict(self, file):
         """Prompts the user to resolve a file conflict."""

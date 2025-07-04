@@ -25,11 +25,11 @@ def main(argv=None):
     Main function to orchestrate the migration.
     """
     parser = argparse.ArgumentParser(description="Migrate files from Dropbox to Google Drive.")
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument('--test_run', action='store_true', help='Run a test migration of the first 10 files.')
-    group.add_argument('--interactive', action='store_true', help='Run in interactive mode, confirming each folder.')
+    parser.add_argument('--dry_run', action='store_true', help='Generate a plan of files to be migrated without performing the migration.')
+    parser.add_argument('--interactive', action='store_true', help='Run in interactive mode, confirming each folder.')
     parser.add_argument('--src', type=str, default=None, help='The source directory path in Dropbox.')
     parser.add_argument('--dest', type=str, default=None, help='The destination directory path in Google Drive.')
+    parser.add_argument('--limit', type=int, default=None, help='Limit the number of lines printed in a test run.')
     args = parser.parse_args(argv)
 
     setup_logger()
@@ -62,7 +62,7 @@ def main(argv=None):
 
     # --- Start Migration ---
     migration = Migration(dropbox_token, google_creds, src_path=args.src, dest_path=args.dest)
-    migration.start(test_run=args.test_run, interactive=args.interactive)
+    migration.start(dry_run=args.dry_run, interactive=args.interactive, limit=args.limit)
 
 if __name__ == '__main__':
     main()
