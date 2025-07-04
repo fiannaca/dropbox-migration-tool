@@ -14,7 +14,7 @@ title: Home
         <li><strong>Resumable Migrations:</strong> If the script is interrupted, it can be restarted and will resume where it left off.</li>
         <li><strong>Conflict Resolution:</strong> Intelligently handles cases where files or folders with the same name already exist in the destination.</li>
         <li><strong>Interactive Mode:</strong> An optional <code>--interactive</code> flag allows you to confirm the migration for each folder.</li>
-        <li><strong>Test Runs:</strong> An optional <code>--test_run</code> flag lets you perform a dry run on a small batch of files.</li>
+        <li><strong>Dry Runs:</strong> An optional <code>--dry_run</code> flag lets you generate a plan of files to be migrated without performing the migration.</li>
         <li><strong>Targeted Migration:</strong> Use the <code>--src</code> and <code>--dest</code> flags to migrate specific folders to a chosen location in Google Drive.</li>
         <li><strong>Robust Error Handling:</strong> Automatically retries on common API errors like rate limiting.</li>
     </ul>
@@ -67,7 +67,7 @@ pip install -r requirements.txt</code></pre>
 python3 src/main.py
 
 # For a test run of the first 10 files
-python3 src/main.py --test_run
+python3 src/main.py --dry_run
 
 # For an interactive run with folder-by-folder confirmation
 python3 src/main.py --interactive
