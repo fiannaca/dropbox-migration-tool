@@ -23,7 +23,7 @@ class Migration:
         if os.path.exists(self.state_file):
             with open(self.state_file, 'r') as f:
                 return json.load(f)
-        return {'migrated_files': [], 'migrated_folders': {'/': None}, 'skipped_folders': []}
+        return {'migrated_files': [], 'skipped_files': [], 'migrated_folders': {'/': None}, 'skipped_folders': []}
 
     def _save_state(self):
         """Saves the migration state to a file."""
@@ -57,7 +57,12 @@ class Migration:
             # User chose to quit
             return
 
-        files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
+        files_to_migrate = [
+            item for item in dropbox_items 
+            if isinstance(item, dropbox.files.FileMetadata) 
+            and item.path_display not in self.state['migrated_files']
+            and item.path_display not in self.state['skipped_files']
+        ]
         self.total_files_to_migrate = len(files_to_migrate)
 
         if not files_to_migrate:
@@ -236,8 +241,11 @@ class Migration:
                 existing_files = self.google_drive_client.find_file(file.name, parent_id=parent_folder_id)
                 
                 if existing_files:
-                    action = self._handle_file_conflict(file, parent_folder_id)
+                    action = self.conflict_resolution_strategy or self._handle_file_conflict(file, parent_folder_id)
                     if action == 'skip':
+                        if file.path_display not in self.state['skipped_files']:
+                            self.state['skipped_files'].append(file.path_display)
+                            self._save_state()
                         pbar.update(file.size)
                         continue
                     elif action == 'rename':
@@ -269,6 +277,10 @@ class Migration:
                 if remember_choice == 'y':
                     self.conflict_resolution_strategy = action
                 
+                if action == 'skip':
+                    self.state['skipped_files'].append(file.path_display)
+                    self._save_state()
+
                 return action
             logging.warning("Invalid choice. Please enter 'o', 'r', or 's'.")
 
