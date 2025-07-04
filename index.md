@@ -23,11 +23,13 @@ title: Home
 <section id="installation">
     <h2>Installation</h2>
     <pre><code># 1. Clone the repository
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/fiannaca/dropbox-migration-tool.git
+cd dropbox-migration-tool
 
 # 2. Install dependencies
+
 pip3 install -r requirements.txt</code></pre>
+
 </section>
 
 <section id="configuration">
@@ -51,6 +53,7 @@ pip3 install -r requirements.txt</code></pre>
 
     <h3>Providing Credentials to the Tool</h3>
     <p>Provide your Dropbox credentials using either a configuration file (<code>config.ini</code>) or environment variables (<code>DROPBOX_APP_KEY</code>, <code>DROPBOX_APP_SECRET</code>).</p>
+
 </section>
 
 <section id="usage">
@@ -59,11 +62,18 @@ pip3 install -r requirements.txt</code></pre>
     <pre><code># For a standard migration
 python3 -m src.main
 
+# For a migration that moves into a specific Google Drive folder
+
+python3 -m src.main --dest "dropbox migration/"
+
 # For a dry run of the first 50 files
+
 python3 -m src.main --dry_run --limit 50
 
 # To migrate a specific folder
+
 python3 -m src.main --src "/My Dropbox Folder" --dest "My Google Drive Folder/Backup"</code></pre>
+
 </section>
 
 <section id="faq">
@@ -78,4 +88,5 @@ python3 -m src.main --src "/My Dropbox Folder" --dest "My Google Drive Folder/Ba
         <dt>A file failed to migrate. What should I do?</dt>
         <dd>The tool will report any failed files in the final summary. You can review the <code>migration.log</code> file for more detailed error messages.</dd>
     </dl>
+
 </section>
