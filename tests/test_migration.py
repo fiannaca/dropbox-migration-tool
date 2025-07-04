@@ -5,6 +5,8 @@ import dropbox
 import logging
 import os
 
+TEST_STATE_FILE = 'test_migration_state.json'
+
 class TestMigration(unittest.TestCase):
 
     @classmethod
@@ -16,8 +18,8 @@ class TestMigration(unittest.TestCase):
         logging.disable(logging.NOTSET)
 
     def tearDown(self):
-        if os.path.exists('migration_state.json'):
-            os.remove('migration_state.json')
+        if os.path.exists(TEST_STATE_FILE):
+            os.remove(TEST_STATE_FILE)
 
     @patch('builtins.input', return_value='y')
     @patch('src.migration.tqdm')
@@ -46,7 +48,7 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client.upload_file.return_value = 'file_id_456'
 
         # Instantiate and run the migration
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start()
 
         # Assertions
@@ -78,7 +80,7 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client = MockGoogleDriveClient.return_value
         mock_gdrive_client.find_file.return_value = [{'id': 'existing_folder_id'}]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start()
 
         mock_gdrive_client.create_folder.assert_not_called()
@@ -99,7 +101,7 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client = MockGoogleDriveClient.return_value
         mock_gdrive_client.find_file.return_value = [{'id': 'existing_file_id'}]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start()
 
         mock_dbx_client.download_file.assert_not_called()
@@ -122,7 +124,7 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client = MockGoogleDriveClient.return_value
         mock_gdrive_client.find_file.return_value = [{'id': 'existing_file_id'}]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start()
 
         mock_gdrive_client.upload_file.assert_called_once_with(unittest.mock.ANY, 'document (1).txt', folder_id=None)
@@ -139,7 +141,7 @@ class TestMigration(unittest.TestCase):
             dropbox.files.FileMetadata(name='file2.txt', path_display='/file2.txt', size=200),
         ]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True)
 
         mock_print.assert_any_call("--- Migration Plan Summary ---")
@@ -162,7 +164,7 @@ class TestMigration(unittest.TestCase):
             dropbox.files.FileMetadata(name=f'file_{i}.txt', path_display=f'/file_{i}.txt', size=100) for i in range(5)
         ]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True, limit=2)
 
         self.assertEqual(mock_print.call_count, 2 + 3) # 2 files + 3 summary lines
@@ -180,7 +182,7 @@ class TestMigration(unittest.TestCase):
             dropbox.files.FileMetadata(name='file1.txt', path_display='/src_folder/file1.txt', size=100),
         ]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/src_folder', dest_path='dest_folder')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/src_folder', dest_path='dest_folder', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True)
 
         mock_print.assert_any_call("--- Migration Plan Summary ---")
@@ -201,7 +203,7 @@ class TestMigration(unittest.TestCase):
             dropbox.files.FileMetadata(name=f'file_{i}.txt', path_display=f'/file_{i}.txt', size=100) for i in range(101)
         ]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True)
 
         mock_print.assert_any_call("Warning: This will print a plan for 101 files.")
@@ -219,7 +221,7 @@ class TestMigration(unittest.TestCase):
             dropbox.files.FileMetadata(name=f'file_{i}.txt', path_display=f'/file_{i}.txt', size=100) for i in range(101)
         ]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True, limit=20)
 
         # Assert that the warning is NOT printed
@@ -241,7 +243,7 @@ class TestMigration(unittest.TestCase):
             dropbox.files.FileMetadata(name=f'file_{i}.txt', path_display=f'/file_{i}.txt', size=100) for i in range(101)
         ]
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True)
 
         mock_print.assert_any_call("Warning: This will print a plan for 101 files.")
@@ -267,7 +269,7 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client.find_file.return_value = []
         mock_gdrive_client.create_folder.return_value = 'folder_id'
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(interactive=True)
 
         # Check that the first folder was migrated, the second was skipped, and the third was not reached
@@ -297,7 +299,7 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client.find_file.return_value = []
         mock_gdrive_client.upload_file.return_value = 'file_id'
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(limit=15)
 
         self.assertEqual(mock_dbx_client.download_file.call_count, 15)
@@ -314,8 +316,8 @@ class TestMigrationWithSrcDestFlags(unittest.TestCase):
         logging.disable(logging.NOTSET)
 
     def tearDown(self):
-        if os.path.exists('migration_state.json'):
-            os.remove('migration_state.json')
+        if os.path.exists(TEST_STATE_FILE):
+            os.remove(TEST_STATE_FILE)
 
     @patch('builtins.input', return_value='y')
     @patch('src.migration.tqdm')
@@ -337,7 +339,7 @@ class TestMigrationWithSrcDestFlags(unittest.TestCase):
         mock_gdrive_client.create_folder.return_value = 'folder_id_123'
         mock_gdrive_client.upload_file.return_value = 'file_id_456'
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/Apps/MyApp')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/Apps/MyApp', state_file=TEST_STATE_FILE)
         migration.start()
 
         mock_dbx_client.list_files_and_folders.assert_called_once_with(path='/Apps/MyApp')
@@ -365,7 +367,7 @@ class TestMigrationWithSrcDestFlags(unittest.TestCase):
         mock_gdrive_client.create_folder.return_value = 'folder_id_123'
         mock_gdrive_client.upload_file.return_value = 'file_id_456'
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', dest_path='MyCoolFolder/Backup')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', dest_path='MyCoolFolder/Backup', state_file=TEST_STATE_FILE)
         migration.start()
 
         mock_gdrive_client.find_or_create_folder_path.assert_called_once_with('MyCoolFolder/Backup')
@@ -393,7 +395,7 @@ class TestMigrationWithSrcDestFlags(unittest.TestCase):
         mock_gdrive_client.create_folder.return_value = 'folder_id_123'
         mock_gdrive_client.upload_file.return_value = 'file_id_456'
 
-        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/Apps/MyApp', dest_path='MyCoolFolder/Backup')
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/Apps/MyApp', dest_path='MyCoolFolder/Backup', state_file=TEST_STATE_FILE)
         migration.start()
 
         mock_dbx_client.list_files_and_folders.assert_called_once_with(path='/Apps/MyApp')
