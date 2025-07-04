@@ -2,6 +2,7 @@ import os
 import json
 import dropbox
 import logging
+from tqdm import tqdm
 from src.dropbox_client import DropboxClient
 from src.google_drive_client import GoogleDriveClient
 
@@ -38,7 +39,7 @@ class Migration:
         if interactive:
             logging.info("Starting interactive migration...")
         else:
-            logging.info("Starting migration...")
+            print("Starting migration...")
 
         dest_folder_id = None
         if self.dest_path:
@@ -48,7 +49,7 @@ class Migration:
         dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '')
 
         if not dropbox_items:
-            logging.info("No items to migrate.")
+            print("No items to migrate.")
             return
 
         if self._migrate_folders(dropbox_items, interactive=interactive, dest_folder_id=dest_folder_id) is False:
@@ -57,10 +58,29 @@ class Migration:
 
         files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
         self.total_files_to_migrate = len(files_to_migrate)
+
+        if not files_to_migrate:
+            print("All files have already been migrated.")
+            return
+            
+        total_size = sum(f.size for f in files_to_migrate)
         
+        print("--- Migration Summary ---")
+        print(f"Total files to migrate: {self.total_files_to_migrate}")
+        print(f"Total size: {total_size / 1e6:.2f} MB")
+        if self.src_path:
+            print(f"Source path: {self.src_path}")
+        if self.dest_path:
+            print(f"Destination path: {self.dest_path}")
+        
+        choice = input("Do you want to proceed with the migration? (y/n): ").lower()
+        if choice != 'y':
+            print("Migration cancelled.")
+            return
+
         self.migrated_in_session = self._migrate_files(files_to_migrate, dest_folder_id=dest_folder_id, limit=limit)
 
-        logging.info("Migration complete.")
+        print("Migration complete.")
         self.log_migration_summary()
 
     def log_migration_summary(self):
@@ -184,50 +204,55 @@ class Migration:
     def _migrate_files(self, files, dest_folder_id=None, limit=None):
         """Migrates files from Dropbox to Google Drive."""
         migrated_count = 0
-        for file in files:
-            if limit is not None and migrated_count >= limit:
-                logging.info(f"Reached migration limit of {limit} files.")
-                break
+        with tqdm(total=len(files), unit='file', desc="Migrating files") as pbar:
+            for file in files:
+                if limit is not None and migrated_count >= limit:
+                    logging.info(f"Reached migration limit of {limit} files.")
+                    break
 
-            if file.path_display not in self.state['migrated_files']:
-                parent_dropbox_path = os.path.dirname(file.path_display)
-                
-                if self.src_path:
-                    # When src_path is provided, find the parent folder ID based on the relative path
-                    relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
-                    if relative_parent_path == '.':
-                        migrated_parent_path = self.dest_path or '/'
+                if file.path_display not in self.state['migrated_files']:
+                    pbar.set_description(f"Downloading {file.name} ({file.size / 1e6:.2f} MB)")
+                    parent_dropbox_path = os.path.dirname(file.path_display)
+                    
+                    if self.src_path:
+                        # When src_path is provided, find the parent folder ID based on the relative path
+                        relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
+                        if relative_parent_path == '.':
+                            migrated_parent_path = self.dest_path or '/'
+                        else:
+                            migrated_parent_path = os.path.join(self.dest_path or '/', relative_parent_path)
                     else:
-                        migrated_parent_path = os.path.join(self.dest_path or '/', relative_parent_path)
-                else:
-                    migrated_parent_path = parent_dropbox_path
+                        migrated_parent_path = parent_dropbox_path
 
-                parent_folder_id = self.state['migrated_folders'].get(migrated_parent_path)
+                    parent_folder_id = self.state['migrated_folders'].get(migrated_parent_path)
 
-                if parent_folder_id is None:
-                    if self.dest_path:
-                        parent_folder_id = self.state['migrated_folders'].get(self.dest_path)
-                    elif migrated_parent_path == '/':
-                        parent_folder_id = self.state['migrated_folders'].get('/')
+                    if parent_folder_id is None:
+                        if self.dest_path:
+                            parent_folder_id = self.state['migrated_folders'].get(self.dest_path)
+                        elif migrated_parent_path == '/':
+                            parent_folder_id = self.state['migrated_folders'].get('/')
 
-                existing_files = self.google_drive_client.find_file(file.name, parent_id=parent_folder_id)
-                
-                if existing_files:
-                    action = self._handle_file_conflict(file)
-                    if action == 'skip':
-                        continue
-                    elif action == 'rename':
-                        # This is a naive rename, a more robust implementation would check for conflicts on the new name
-                        file.name = f"{os.path.splitext(file.name)[0]} (1){os.path.splitext(file.name)[1]}"
-                
-                local_path = f"/tmp/{file.name}" # Using /tmp for temporary downloads
-                if self.dropbox_client.download_file(file.path_display, local_path):
-                    file_id = self.google_drive_client.upload_file(local_path, file.name, folder_id=parent_folder_id)
-                    if file_id:
-                        self.state['migrated_files'].append(file.path_display)
-                        self._save_state()
-                        migrated_count += 1
-                    os.remove(local_path)
+                    existing_files = self.google_drive_client.find_file(file.name, parent_id=parent_folder_id)
+                    
+                    if existing_files:
+                        action = self._handle_file_conflict(file)
+                        if action == 'skip':
+                            pbar.update(1)
+                            continue
+                        elif action == 'rename':
+                            # This is a naive rename, a more robust implementation would check for conflicts on the new name
+                            file.name = f"{os.path.splitext(file.name)[0]} (1){os.path.splitext(file.name)[1]}"
+                    
+                    local_path = f"/tmp/{file.name}" # Using /tmp for temporary downloads
+                    if self.dropbox_client.download_file(file.path_display, local_path):
+                        pbar.set_description(f"Uploading {file.name} ({file.size / 1e6:.2f} MB)")
+                        file_id = self.google_drive_client.upload_file(local_path, file.name, folder_id=parent_folder_id)
+                        if file_id:
+                            self.state['migrated_files'].append(file.path_display)
+                            self._save_state()
+                            migrated_count += 1
+                        os.remove(local_path)
+                pbar.update(1)
         return migrated_count
 
     def _handle_file_conflict(self, file):

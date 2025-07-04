@@ -1,3 +1,4 @@
 dropbox
 google-api-python-client
 google-auth-oauthlib
+tqdm
