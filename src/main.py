@@ -6,7 +6,7 @@ import sys
 import dropbox
 from google.auth.exceptions import RefreshError
 from src.dropbox_auth import get_access_token as get_dropbox_token, save_credentials as save_dropbox_credentials, load_credentials as load_dropbox_credentials, CREDENTIALS_FILE as DROPBOX_CREDENTIALS_FILE
-from src.google_drive_auth import get_credentials as get_google_credentials, CREDENTIALS_PATH as GOOGLE_CREDENTIALS_PATH
+from src.google_drive_auth import get_credentials as get_google_credentials, TOKEN_PATH as GOOGLE_TOKEN_PATH
 from src.migration import Migration
 from src.logger_config import setup_logger
 
@@ -55,7 +55,7 @@ def main(argv=None):
 
     # --- Google Drive Authentication ---
     logging.info("Authenticating with Google Drive...")
-    google_creds = get_google_credentials(credentials_path='google_credentials.json')
+    google_creds = get_google_credentials()
     if google_creds:
         logging.info("Google Drive authentication successful.")
     else:
@@ -86,8 +86,8 @@ def main(argv=None):
                 break
         except RefreshError:
             logging.warning("Google Drive access token has expired. Attempting to re-authenticate.")
-            if os.path.exists(GOOGLE_CREDENTIALS_PATH):
-                os.remove(GOOGLE_CREDENTIALS_PATH)
+            if os.path.exists(GOOGLE_TOKEN_PATH):
+                os.remove(GOOGLE_TOKEN_PATH)
             
             google_creds = get_google_credentials()
             if google_creds:

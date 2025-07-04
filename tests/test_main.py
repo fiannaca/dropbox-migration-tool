@@ -163,7 +163,7 @@ class TestMain(unittest.TestCase):
         main([])
 
         # Verify that the credentials file was removed
-        mock_os_remove.assert_called_once_with('google_credentials.json')
+        mock_os_remove.assert_called_once_with('google_token.json')
         # Verify that get_google_credentials was called twice
         self.assertEqual(mock_get_google_credentials.call_count, 2)
         # Verify that Migration was called twice

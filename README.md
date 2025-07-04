@@ -32,7 +32,8 @@ This utility helps you migrate your files and folders from Dropbox to Google Dri
     5. Go to "APIs & Services" > "Credentials".
     6. Click "Create Credentials" and choose "OAuth client ID".
     7. Select "Desktop app" for the application type.
-    8. After creation, download the JSON file. Rename it to `google_credentials.json` and place it in the root of this project.
+    8. After creation, download the JSON file. Rename it to `client_secrets.json` and place it in the root of this project.
+    9.  A `google_token.json` file will be created automatically upon first run to store your user-specific authentication token.
 
 3.  **Configure the Tool**
 
