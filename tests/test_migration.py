@@ -86,17 +86,19 @@ class TestMigration(unittest.TestCase):
         mock_gdrive_client.create_folder.assert_not_called()
         self.assertEqual(migration.state['migrated_folders']['/Photos'], 'existing_folder_id')
 
-    @patch('builtins.input', return_value='s')
+    @patch('builtins.input', side_effect=['y', 's', 'y'])
+    @patch('src.migration.tqdm')
     @patch('src.migration.Migration._save_state')
     @patch('src.migration.Migration._load_state')
     @patch('os.remove')
     @patch('src.migration.GoogleDriveClient')
     @patch('src.migration.DropboxClient')
-    def test_file_conflict_skip(self, MockDropboxClient, MockGoogleDriveClient, mock_os_remove, mock_load_state, mock_save_state, mock_input):
+    def test_file_conflict_skip(self, MockDropboxClient, MockGoogleDriveClient, mock_os_remove, mock_load_state, mock_save_state, mock_tqdm, mock_input):
         mock_load_state.return_value = {'migrated_files': [], 'migrated_folders': {'/': None}, 'skipped_folders': []}
         mock_dbx_client = MockDropboxClient.return_value
         mock_dbx_client.list_files_and_folders.return_value = [
             dropbox.files.FileMetadata(name='document.txt', path_display='/document.txt', size=100),
+            dropbox.files.FileMetadata(name='document2.txt', path_display='/document2.txt', size=100),
         ]
         mock_gdrive_client = MockGoogleDriveClient.return_value
         mock_gdrive_client.find_file.return_value = [{'id': 'existing_file_id'}]
@@ -106,8 +108,9 @@ class TestMigration(unittest.TestCase):
 
         mock_dbx_client.download_file.assert_not_called()
         mock_gdrive_client.upload_file.assert_not_called()
+        self.assertEqual(mock_input.call_count, 3) # y to start, s to skip, y to remember
 
-    @patch('builtins.input', side_effect=['y', 'r'])
+    @patch('builtins.input', side_effect=['y', 'r', 'y'])
     @patch('src.migration.tqdm')
     @patch('src.migration.Migration._save_state')
     @patch('src.migration.Migration._load_state')
@@ -119,15 +122,20 @@ class TestMigration(unittest.TestCase):
         mock_dbx_client = MockDropboxClient.return_value
         mock_dbx_client.list_files_and_folders.return_value = [
             dropbox.files.FileMetadata(name='document.txt', path_display='/document.txt', size=100),
+            dropbox.files.FileMetadata(name='document2.txt', path_display='/document2.txt', size=100),
         ]
         mock_dbx_client.download_file.return_value = True
         mock_gdrive_client = MockGoogleDriveClient.return_value
-        mock_gdrive_client.find_file.return_value = [{'id': 'existing_file_id'}]
+        # First find_file call finds the existing file, second call for the renamed file finds nothing
+        mock_gdrive_client.find_file.side_effect = [[{'id': 'existing_file_id'}], [], [{'id': 'existing_file_id'}], []]
 
         migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start()
 
-        mock_gdrive_client.upload_file.assert_called_once_with(unittest.mock.ANY, 'document (1).txt', folder_id=None)
+        self.assertEqual(mock_gdrive_client.upload_file.call_count, 2)
+        mock_gdrive_client.upload_file.assert_any_call(unittest.mock.ANY, 'document (1).txt', folder_id=None)
+        mock_gdrive_client.upload_file.assert_any_call(unittest.mock.ANY, 'document2 (1).txt', folder_id=None)
+        self.assertEqual(mock_input.call_count, 3) # y to start, r to rename, y to remember
 
     @patch('builtins.print')
     @patch('src.migration.Migration._load_state')

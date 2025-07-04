@@ -16,6 +16,7 @@ class Migration:
         self.state = self._load_state()
         self.total_files_to_migrate = 0
         self.migrated_in_session = 0
+        self.conflict_resolution_strategy = None
 
     def _load_state(self):
         """Loads the migration state from a file."""
@@ -235,13 +236,12 @@ class Migration:
                     existing_files = self.google_drive_client.find_file(file.name, parent_id=parent_folder_id)
                     
                     if existing_files:
-                        action = self._handle_file_conflict(file)
+                        action = self._handle_file_conflict(file, parent_folder_id)
                         if action == 'skip':
                             pbar.update(1)
                             continue
                         elif action == 'rename':
-                            # This is a naive rename, a more robust implementation would check for conflicts on the new name
-                            file.name = f"{os.path.splitext(file.name)[0]} (1){os.path.splitext(file.name)[1]}"
+                            file.name = self._get_unique_name(file.name, parent_folder_id)
                     
                     local_path = f"/tmp/{file.name}" # Using /tmp for temporary downloads
                     if self.dropbox_client.download_file(file.path_display, local_path):
@@ -255,15 +255,29 @@ class Migration:
                 pbar.update(1)
         return migrated_count
 
-    def _handle_file_conflict(self, file):
+    def _handle_file_conflict(self, file, parent_folder_id):
         """Prompts the user to resolve a file conflict."""
+        if self.conflict_resolution_strategy:
+            return self.conflict_resolution_strategy
+
         while True:
             choice = input(f"File '{file.name}' already exists. Overwrite, rename, or skip? (o/r/s): ").lower()
             if choice in ['o', 'r', 's']:
-                if choice == 'o':
-                    return 'overwrite'
-                elif choice == 'r':
-                    return 'rename'
-                else:
-                    return 'skip'
+                action = {'o': 'overwrite', 'r': 'rename', 's': 'skip'}[choice]
+                
+                remember_choice = input(f"Always {action.upper()} for future conflicts? (y/n): ").lower()
+                if remember_choice == 'y':
+                    self.conflict_resolution_strategy = action
+                
+                return action
             logging.warning("Invalid choice. Please enter 'o', 'r', or 's'.")
+
+    def _get_unique_name(self, original_name, parent_folder_id):
+        """Generates a unique file name if a conflict exists."""
+        name, ext = os.path.splitext(original_name)
+        counter = 1
+        new_name = f"{name} ({counter}){ext}"
+        while self.google_drive_client.find_file(new_name, parent_id=parent_folder_id):
+            counter += 1
+            new_name = f"{name} ({counter}){ext}"
+        return new_name
