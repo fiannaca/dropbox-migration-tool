@@ -49,9 +49,17 @@ class TestGoogleDriveClient(unittest.TestCase):
         self.assertEqual(files[0]['id'], 'file_id_123')
 
     def test_find_file_with_single_quote(self):
-        self.client.find_file("My 'File'.txt")
+        self.client.find_file("Programmer's Persp.pdf")
         self.mock_service.files().list.assert_called_with(
-            q="name = 'My \'File\'.txt' and 'root' in parents",
+            q='name = "Programmer\'s Persp.pdf" and \'root\' in parents',
+            spaces='drive',
+            fields='files(id, name)'
+        )
+
+    def test_find_file_with_double_quote(self):
+        self.client.find_file('My "Cool" File.txt')
+        self.mock_service.files().list.assert_called_with(
+            q='name = "My \"Cool\" File.txt" and \'root\' in parents',
             spaces='drive',
             fields='files(id, name)'
         )
