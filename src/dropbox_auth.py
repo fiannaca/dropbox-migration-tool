@@ -3,6 +3,8 @@ import webbrowser
 import json
 import logging
 
+CREDENTIALS_FILE = 'dropbox_credentials.json'
+
 def get_access_token(app_key, app_secret):
     """
     Authenticates with Dropbox and returns an access token.

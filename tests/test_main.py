@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from src.main import main, get_config
 import logging
 import os
@@ -91,3 +91,34 @@ class TestMain(unittest.TestCase):
         with self.assertRaises(SystemExit) as cm:
             main([])
         self.assertEqual(cm.exception.code, 1)
+
+    @patch('src.main.get_config', return_value=('test_key', 'test_secret'))
+    @patch('src.main.setup_logger')
+    @patch('src.main.load_dropbox_credentials')
+    @patch('src.main.get_google_credentials')
+    @patch('src.main.get_dropbox_token')
+    @patch('src.main.save_dropbox_credentials')
+    @patch('os.remove')
+    @patch('src.main.Migration')
+    def test_main_reauthentication_on_auth_error(self, MockMigration, mock_os_remove, mock_save_credentials, mock_get_dropbox_token, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
+        import dropbox
+
+        # First call to Migration raises AuthError, second call succeeds
+        auth_error = dropbox.exceptions.AuthError('request_id', 'expired_access_token')
+        auth_error.__str__ = lambda self: 'expired_access_token'
+        MockMigration.side_effect = [
+            auth_error,
+            MagicMock()
+        ]
+        mock_load_dropbox_credentials.return_value = 'expired_token'
+        mock_get_dropbox_token.return_value = 'new_token'
+
+        main([])
+
+        # Verify that the credentials file was removed
+        mock_os_remove.assert_called_once_with('dropbox_credentials.json')
+        # Verify that a new token was requested and saved
+        mock_get_dropbox_token.assert_called_once()
+        mock_save_credentials.assert_called_once_with('new_token')
+        # Verify that Migration was called twice
+        self.assertEqual(MockMigration.call_count, 2)

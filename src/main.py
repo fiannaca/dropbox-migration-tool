@@ -3,7 +3,8 @@ import argparse
 import os
 import configparser
 import sys
-from src.dropbox_auth import get_access_token as get_dropbox_token, save_credentials as save_dropbox_credentials, load_credentials as load_dropbox_credentials
+import dropbox
+from src.dropbox_auth import get_access_token as get_dropbox_token, save_credentials as save_dropbox_credentials, load_credentials as load_dropbox_credentials, CREDENTIALS_FILE
 from src.google_drive_auth import get_credentials as get_google_credentials
 from src.migration import Migration
 from src.logger_config import setup_logger
@@ -61,8 +62,30 @@ def main(argv=None):
         return
 
     # --- Start Migration ---
-    migration = Migration(dropbox_token, google_creds, src_path=args.src, dest_path=args.dest)
-    migration.start(dry_run=args.dry_run, interactive=args.interactive, limit=args.limit)
+    while True:
+        try:
+            migration = Migration(dropbox_token, google_creds, src_path=args.src, dest_path=args.dest)
+            migration.start(dry_run=args.dry_run, interactive=args.interactive, limit=args.limit)
+            break # Exit the loop if migration completes successfully
+        except dropbox.exceptions.AuthError as e:
+            if 'expired_access_token' in str(e):
+                logging.warning("Dropbox access token has expired. Attempting to re-authenticate.")
+                if os.path.exists(CREDENTIALS_FILE):
+                    os.remove(CREDENTIALS_FILE)
+                
+                dropbox_token = get_dropbox_token(dropbox_app_key, dropbox_app_secret)
+                if dropbox_token:
+                    save_dropbox_credentials(dropbox_token)
+                    logging.info("Dropbox re-authentication successful. Resuming migration.")
+                else:
+                    logging.error("Dropbox re-authentication failed. Exiting.")
+                    break
+            else:
+                logging.error(f"An unexpected Dropbox authentication error occurred: {e}")
+                break
+        except Exception as e:
+            logging.error(f"An unexpected error occurred during migration: {e}")
+            break
 
 if __name__ == '__main__':
     main()
