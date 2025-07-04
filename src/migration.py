@@ -64,8 +64,15 @@ class Migration:
         dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '')
         files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
 
+        print("--- Migration Plan Summary ---")
+        print(f"Files to migrate: {len(files_to_migrate)}")
+        if self.src_path:
+            print(f"Source path: {self.src_path}")
+        if self.dest_path:
+            print(f"Destination path: {self.dest_path}")
+        print("--------------------------")
+
         if not files_to_migrate:
-            print("No files to migrate.")
             return
 
         if limit is None and len(files_to_migrate) > 100:
