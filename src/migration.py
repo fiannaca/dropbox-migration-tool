@@ -13,6 +13,8 @@ class Migration:
         self.dest_path = dest_path
         self.state_file = state_file
         self.state = self._load_state()
+        self.total_files_to_migrate = 0
+        self.migrated_in_session = 0
 
     def _load_state(self):
         """Loads the migration state from a file."""
@@ -54,10 +56,21 @@ class Migration:
             return
 
         files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
+        self.total_files_to_migrate = len(files_to_migrate)
         
-        self._migrate_files(files_to_migrate, dest_folder_id=dest_folder_id, limit=limit)
+        self.migrated_in_session = self._migrate_files(files_to_migrate, dest_folder_id=dest_folder_id, limit=limit)
 
         logging.info("Migration complete.")
+        self.log_migration_summary()
+
+    def log_migration_summary(self):
+        """Logs a summary of the migration session."""
+        remaining_files = self.total_files_to_migrate - self.migrated_in_session
+        logging.info(f"--- Migration Session Summary ---")
+        logging.info(f"Migrated this session: {self.migrated_in_session}")
+        logging.info(f"Remaining to migrate: {remaining_files}")
+        logging.info(f"Total migrated: {len(self.state['migrated_files'])}")
+        logging.info("---------------------------------")
 
     def _generate_migration_plan(self, limit=None):
         """Generates and prints a plan of files to be migrated."""
@@ -215,6 +228,7 @@ class Migration:
                         self._save_state()
                         migrated_count += 1
                     os.remove(local_path)
+        return migrated_count
 
     def _handle_file_conflict(self, file):
         """Prompts the user to resolve a file conflict."""

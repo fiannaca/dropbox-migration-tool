@@ -122,3 +122,18 @@ class TestMain(unittest.TestCase):
         mock_save_credentials.assert_called_once_with('new_token')
         # Verify that Migration was called twice
         self.assertEqual(MockMigration.call_count, 2)
+
+    @patch('src.main.get_config', return_value=('test_key', 'test_secret'))
+    @patch('src.main.setup_logger')
+    @patch('src.main.load_dropbox_credentials')
+    @patch('src.main.get_google_credentials')
+    @patch('src.main.Migration')
+    def test_main_keyboard_interrupt(self, MockMigration, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
+        # Simulate a KeyboardInterrupt during migration
+        mock_migration_instance = MockMigration.return_value
+        mock_migration_instance.start.side_effect = KeyboardInterrupt
+
+        main([])
+
+        # Verify that the summary is logged
+        mock_migration_instance.log_migration_summary.assert_called_once()

@@ -83,6 +83,10 @@ def main(argv=None):
             else:
                 logging.error(f"An unexpected Dropbox authentication error occurred: {e}")
                 break
+        except KeyboardInterrupt:
+            logging.info("\nMigration interrupted by user.")
+            migration.log_migration_summary()
+            break
         except Exception as e:
             logging.error(f"An unexpected error occurred during migration: {e}")
             break
