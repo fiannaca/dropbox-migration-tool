@@ -2,6 +2,7 @@ import os
 import json
 import dropbox
 import logging
+import re
 from tqdm import tqdm
 from src.dropbox_client import DropboxClient
 from src.google_drive_client import GoogleDriveClient
@@ -30,6 +31,10 @@ class Migration:
         """Saves the migration state to a file."""
         with open(self.state_file, 'w') as f:
             json.dump(self.state, f, indent=4)
+
+    def _sanitize_filename(self, filename):
+        """Removes characters that are problematic for file systems."""
+        return re.sub(r"[\\/*?:\'\"<>|]", "_", filename)
 
     def start(self, dry_run=False, interactive=False, limit=None):
         """Starts the migration process."""
@@ -254,7 +259,6 @@ class Migration:
                     parent_dropbox_path = os.path.dirname(file.path_display)
                     
                     if self.src_path:
-                        # When src_path is provided, find the parent folder ID based on the relative path
                         relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
                         if relative_parent_path == '.':
                             migrated_parent_path = self.dest_path or '/'
@@ -273,6 +277,7 @@ class Migration:
 
                     existing_files = self.google_drive_client.find_file(file.name, parent_id=parent_folder_id)
                     
+                    original_name = file.name
                     if existing_files:
                         action = self.conflict_resolution_strategy or self._handle_file_conflict(file, parent_folder_id)
                         if action == 'skip':
@@ -282,11 +287,12 @@ class Migration:
                             pbar.update(file.size)
                             continue
                         elif action == 'rename':
-                            file.name = self._get_unique_name(file.name, parent_folder_id)
+                            file.name = self._get_unique_name(original_name, parent_folder_id)
                     
-                    local_path = f"/tmp/{file.name}"
+                    sanitized_name = self._sanitize_filename(original_name)
+                    local_path = f"/tmp/{sanitized_name}"
                     if self.dropbox_client.download_file(file.path_display, local_path):
-                        pbar.set_description(f"Uploading {file.name} ({file.size / 1e6:.2f} MB)")
+                        pbar.set_description(f"Uploading {original_name} ({file.size / 1e6:.2f} MB)")
                         file_id = self.google_drive_client.upload_file(local_path, file.name, folder_id=parent_folder_id)
                         if file_id:
                             self.state['migrated_files'].append(file.path_display)
@@ -297,7 +303,7 @@ class Migration:
             except Exception as e:
                 logging.error(f"Failed to migrate {file.path_display}: {e}")
                 self.failed_files.append(file.path_display)
-                pbar.update(file.size) # Still update the progress bar
+                pbar.update(file.size)
         return migrated_count
 
     def _handle_file_conflict(self, file, parent_folder_id):
