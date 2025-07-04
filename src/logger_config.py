@@ -3,11 +3,13 @@ import sys
 
 def setup_logger():
     """
-    Configures the logger to write to a file.
+    Configures the logger to write to a file and the console.
     """
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
-        filename='migration.log',
-        filemode='a'
+        handlers=[
+            logging.FileHandler("migration.log"),
+            logging.StreamHandler()
+        ]
     )

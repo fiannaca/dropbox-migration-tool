@@ -144,8 +144,11 @@ class TestMigration(unittest.TestCase):
         migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True)
 
-        mock_print.assert_any_call("--- Migration Plan Summary ---")
-        mock_print.assert_any_call("Files to migrate: 2")
+        mock_print.assert_any_call(
+            "--- Migration Plan Summary ---\n"
+            "Files to migrate: 2\n"
+            "--------------------------"
+        )
         mock_print.assert_any_call("dropbox:/file1.txt -> gdrive:file1.txt")
         mock_print.assert_any_call("dropbox:/file2.txt -> gdrive:file2.txt")
         MockGoogleDriveClient.return_value.create_folder.assert_not_called()
@@ -166,7 +169,7 @@ class TestMigration(unittest.TestCase):
         migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True, limit=2)
 
-        self.assertEqual(mock_print.call_count, 2 + 3)
+        self.assertEqual(mock_print.call_count, 4) # 1 summary + 1 separator + 2 files
         mock_print.assert_any_call("dropbox:/file_0.txt -> gdrive:file_0.txt")
         mock_print.assert_any_call("dropbox:/file_1.txt -> gdrive:file_1.txt")
 
@@ -184,10 +187,13 @@ class TestMigration(unittest.TestCase):
         migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/src_folder', dest_path='dest_folder', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True)
 
-        mock_print.assert_any_call("--- Migration Plan Summary ---")
-        mock_print.assert_any_call("Files to migrate: 1")
-        mock_print.assert_any_call("Source path: /src_folder")
-        mock_print.assert_any_call("Destination path: dest_folder")
+        mock_print.assert_any_call(
+            "--- Migration Plan Summary ---\n"
+            "Files to migrate: 1\n"
+            "Source path: /src_folder\n"
+            "Destination path: dest_folder\n"
+            "--------------------------"
+        )
         mock_print.assert_any_call("dropbox:/src_folder/file1.txt -> gdrive:dest_folder/file1.txt")
 
     @patch('builtins.input', return_value='y')
@@ -206,7 +212,7 @@ class TestMigration(unittest.TestCase):
         migration.start(dry_run=True)
 
         mock_print.assert_any_call("Warning: This will print a plan for 101 files.")
-        self.assertEqual(mock_print.call_count, 101 + 4)
+        self.assertEqual(mock_print.call_count, 104) # 1 summary + 1 separator + 1 warning + 101 files
 
     @patch('builtins.input', return_value='y')
     @patch('builtins.print')
@@ -223,10 +229,11 @@ class TestMigration(unittest.TestCase):
         migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start(dry_run=True, limit=20)
 
+        # Assert that the warning is NOT printed
         for call in mock_print.call_args_list:
             self.assertNotIn("Warning", call.args[0])
         
-        self.assertEqual(mock_print.call_count, 20 + 3)
+        self.assertEqual(mock_print.call_count, 22) # 1 summary + 1 separator + 20 files
         mock_input.assert_not_called()
 
     @patch('builtins.input', return_value='n')
@@ -246,7 +253,7 @@ class TestMigration(unittest.TestCase):
 
         mock_print.assert_any_call("Warning: This will print a plan for 101 files.")
         mock_print.assert_any_call("Operation cancelled.")
-        self.assertEqual(mock_print.call_count, 2 + 3)
+        self.assertEqual(mock_print.call_count, 4) # 1 summary + 1 separator + 1 warning + 1 cancellation message
 
     @patch('builtins.input', side_effect=['', 's', 'esc'])
     @patch('src.migration.Migration._save_state')

@@ -33,14 +33,17 @@ class Migration:
     def start(self, dry_run=False, interactive=False, limit=None):
         """Starts the migration process."""
         if dry_run:
+            print("Generating migration plan (dry run)...")
             logging.info("Generating migration plan (dry run)...")
             self._generate_migration_plan(limit=limit)
             return
 
         if interactive:
+            print("Starting interactive migration...")
             logging.info("Starting interactive migration...")
         else:
             print("Starting migration...")
+            logging.info("Starting migration...")
 
         dest_folder_id = None
         if self.dest_path:
@@ -51,6 +54,7 @@ class Migration:
 
         if not dropbox_items:
             print("No items to migrate.")
+            logging.info("No items to migrate.")
             return
 
         if self._migrate_folders(dropbox_items, interactive=interactive, dest_folder_id=dest_folder_id) is False:
@@ -67,59 +71,77 @@ class Migration:
 
         if not files_to_migrate:
             print("All files have already been migrated.")
+            logging.info("All files have already been migrated.")
             return
             
         total_size = sum(f.size for f in files_to_migrate)
         
-        print("--- Migration Summary ---")
-        print(f"Total files to migrate: {self.total_files_to_migrate}")
-        print(f"Total size: {total_size / 1e6:.2f} MB")
+        summary = (
+            f"--- Migration Summary ---\n"
+            f"Total files to migrate: {self.total_files_to_migrate}\n"
+            f"Total size: {total_size / 1e6:.2f} MB"
+        )
         if self.src_path:
-            print(f"Source path: {self.src_path}")
+            summary += f"\nSource path: {self.src_path}"
         if self.dest_path:
-            print(f"Destination path: {self.dest_path}")
+            summary += f"\nDestination path: {self.dest_path}"
+        print(summary)
+        logging.info(summary)
         
         choice = input("Do you want to proceed with the migration? (y/n): ").lower()
         if choice != 'y':
             print("Migration cancelled.")
+            logging.info("Migration cancelled by user.")
             return
 
         with tqdm(total=total_size, unit='B', unit_scale=True, desc="Migrating files") as pbar:
             self.migrated_in_session = self._migrate_files(files_to_migrate, pbar, dest_folder_id=dest_folder_id, limit=limit)
 
         print("Migration complete.")
+        logging.info("Migration complete.")
         self.log_migration_summary()
 
     def log_migration_summary(self):
-        """Logs a summary of the migration session."""
+        """Logs and prints a summary of the migration session."""
         remaining_files = self.total_files_to_migrate - self.migrated_in_session
-        logging.info(f"--- Migration Session Summary ---")
-        logging.info(f"Migrated this session: {self.migrated_in_session}")
-        logging.info(f"Remaining to migrate: {remaining_files}")
-        logging.info(f"Total migrated: {len(self.state['migrated_files'])}")
-        logging.info("---------------------------------")
+        summary = (
+            f"--- Migration Session Summary ---\n"
+            f"Migrated this session: {self.migrated_in_session}\n"
+            f"Remaining to migrate: {remaining_files}\n"
+            f"Total migrated: {len(self.state['migrated_files'])}\n"
+            f"---------------------------------"
+        )
+        logging.info(summary)
+        print(summary)
 
     def _generate_migration_plan(self, limit=None):
         """Generates and prints a plan of files to be migrated."""
         dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '')
         files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
 
-        print("--- Migration Plan Summary ---")
-        print(f"Files to migrate: {len(files_to_migrate)}")
+        summary = (
+            f"--- Migration Plan Summary ---\n"
+            f"Files to migrate: {len(files_to_migrate)}"
+        )
         if self.src_path:
-            print(f"Source path: {self.src_path}")
+            summary += f"\nSource path: {self.src_path}"
         if self.dest_path:
-            print(f"Destination path: {self.dest_path}")
-        print("--------------------------")
+            summary += f"\nDestination path: {self.dest_path}"
+        summary += "\n--------------------------"
+        print(summary)
+        logging.info(summary)
 
         if not files_to_migrate:
             return
 
         if limit is None and len(files_to_migrate) > 100:
-            print(f"Warning: This will print a plan for {len(files_to_migrate)} files.")
+            warning = f"Warning: This will print a plan for {len(files_to_migrate)} files."
+            print(warning)
+            logging.warning(warning)
             choice = input("Do you want to continue? (y/n): ").lower()
             if choice != 'y':
                 print("Operation cancelled.")
+                logging.info("Operation cancelled by user.")
                 return
         
         for i, file in enumerate(files_to_migrate):
@@ -127,7 +149,9 @@ class Migration:
                 break
             
             dest_path = self._get_destination_path(file)
-            print(f"dropbox:{file.path_display} -> gdrive:{dest_path}")
+            plan_line = f"dropbox:{file.path_display} -> gdrive:{dest_path}"
+            print(plan_line)
+            logging.info(plan_line)
 
     def _get_destination_path(self, file):
         """Calculates the destination path in Google Drive for a given file."""
@@ -144,7 +168,6 @@ class Migration:
     def _migrate_folders(self, items, interactive=False, dest_folder_id=None):
         """Migrates folders from Dropbox to Google Drive, preserving hierarchy."""
         folders = [item for item in items if isinstance(item, dropbox.files.FolderMetadata)]
-        # Sort folders by path depth to ensure parents are created before children
         folders.sort(key=lambda f: f.path_display.count('/'))
 
         for folder in folders:
@@ -152,13 +175,18 @@ class Migration:
                 continue
 
             if interactive:
+                folder_info = f"\nFolder: {folder.path_display}"
+                print(folder_info)
+                logging.info(folder_info)
                 files_in_folder = [item.name for item in items if isinstance(item, dropbox.files.FileMetadata) and os.path.dirname(item.path_display) == folder.path_display]
-                logging.info(f"\nFolder: {folder.path_display}")
                 if files_in_folder:
+                    print("Files to be migrated in this folder:")
                     logging.info("Files to be migrated in this folder:")
                     for file_name in files_in_folder:
+                        print(f"- {file_name}")
                         logging.info(f"- {file_name}")
                 else:
+                    print("This folder is empty.")
                     logging.info("This folder is empty.")
                 
                 choice = input("Press Enter to continue, 's' to skip this folder, or 'esc' to quit: ").lower()
@@ -167,13 +195,13 @@ class Migration:
                     self._save_state()
                     continue
                 elif choice == 'esc':
+                    print("Quitting migration.")
                     logging.info("Quitting migration.")
                     self._save_state()
                     return False
 
             parent_dropbox_path = os.path.dirname(folder.path_display)
             if self.src_path and parent_dropbox_path.startswith(self.src_path):
-                 # Make parent path relative to src_path
                 relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
                 if relative_parent_path == '.':
                     parent_path = self.dest_path or '/'
@@ -205,7 +233,7 @@ class Migration:
                     migrated_path = folder.path_display
 
                 self.state['migrated_folders'][migrated_path] = folder_id
-                self.state['migrated_folders'][folder.path_display] = folder_id # Keep original path for file lookup
+                self.state['migrated_folders'][folder.path_display] = folder_id
                 self._save_state()
 
     def _migrate_files(self, files, pbar, dest_folder_id=None, limit=None):
@@ -221,7 +249,6 @@ class Migration:
                 parent_dropbox_path = os.path.dirname(file.path_display)
                 
                 if self.src_path:
-                    # When src_path is provided, find the parent folder ID based on the relative path
                     relative_parent_path = os.path.relpath(parent_dropbox_path, self.src_path)
                     if relative_parent_path == '.':
                         migrated_parent_path = self.dest_path or '/'
@@ -251,7 +278,7 @@ class Migration:
                     elif action == 'rename':
                         file.name = self._get_unique_name(file.name, parent_folder_id)
                 
-                local_path = f"/tmp/{file.name}" # Using /tmp for temporary downloads
+                local_path = f"/tmp/{file.name}"
                 if self.dropbox_client.download_file(file.path_display, local_path):
                     pbar.set_description(f"Uploading {file.name} ({file.size / 1e6:.2f} MB)")
                     file_id = self.google_drive_client.upload_file(local_path, file.name, folder_id=parent_folder_id)
