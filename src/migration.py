@@ -330,6 +330,20 @@ class Migration:
                 return action
             logging.warning("Invalid choice. Please enter 'o', 'r', or 's'.")
 
+    def list_source_directory(self):
+        """Lists the contents of the source directory."""
+        logging.info(f"Listing contents of Dropbox path: '{self.src_path or '/'}'")
+        items = self.dropbox_client.list_files_and_folders(path=self.src_path or '', recursive=False)
+        if not items:
+            print("No items found in this directory.")
+            return
+        
+        for item in items:
+            if isinstance(item, dropbox.files.FolderMetadata):
+                print(f"[D] {item.name}")
+            else:
+                print(f"[F] {item.name}")
+
     def _get_unique_name(self, original_name, parent_folder_id):
         """Generates a unique file name if a conflict exists."""
         name, ext = os.path.splitext(original_name)

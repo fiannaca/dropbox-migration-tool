@@ -114,3 +114,11 @@ To handle API rate limits and other transient network errors, the application wi
     3.  If the request fails again, it will double the waiting period and repeat, up to a maximum number of retries.
 *   **Implementation**: This will be implemented as a reusable Python decorator that can be applied to any function making an API call.
 
+## Directory Listing Feature
+
+To help users identify the correct paths for the `--src` flag, a `--ls` flag is available. When this flag is used, the tool will:
+
+1.  List the files and folders in the specified `--src` directory (or the root if no source is provided).
+2.  The listing will not be recursive.
+3.  The tool will then exit without performing any migration.
+

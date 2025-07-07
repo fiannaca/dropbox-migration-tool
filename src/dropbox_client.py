@@ -7,17 +7,18 @@ class DropboxClient:
         self.dbx = dropbox.Dropbox(access_token)
 
     @retry_on_exception((dropbox.exceptions.RateLimitError, dropbox.exceptions.ApiError))
-    def list_files_and_folders(self, path=''):
+    def list_files_and_folders(self, path='', recursive=False):
         """
-        Recursively lists all files and folders in a given Dropbox path, handling pagination.
+        Lists all files and folders in a given Dropbox path, handling pagination.
         """
         try:
-            result = self.dbx.files_list_folder(path, recursive=True)
+            result = self.dbx.files_list_folder(path, recursive=recursive)
             all_entries = result.entries
             
-            while result.has_more:
-                result = self.dbx.files_list_folder_continue(result.cursor)
-                all_entries.extend(result.entries)
+            if recursive:
+                while result.has_more:
+                    result = self.dbx.files_list_folder_continue(result.cursor)
+                    all_entries.extend(result.entries)
                 
             return all_entries
         except dropbox.exceptions.ApiError as err:

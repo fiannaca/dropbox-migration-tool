@@ -99,8 +99,9 @@ class TestMain(unittest.TestCase):
     @patch('src.main.get_dropbox_token')
     @patch('src.main.save_dropbox_credentials')
     @patch('os.remove')
+    @patch('os.path.exists')
     @patch('src.main.Migration')
-    def test_main_reauthentication_on_auth_error(self, MockMigration, mock_os_remove, mock_save_credentials, mock_get_dropbox_token, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
+    def test_main_reauthentication_on_auth_error(self, MockMigration, mock_os_path_exists, mock_os_remove, mock_save_credentials, mock_get_dropbox_token, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
         import dropbox
 
         # First call to Migration raises AuthError, second call succeeds
@@ -112,6 +113,7 @@ class TestMain(unittest.TestCase):
         ]
         mock_load_dropbox_credentials.return_value = 'expired_token'
         mock_get_dropbox_token.return_value = 'new_token'
+        mock_os_path_exists.return_value = True
 
         main([])
 
@@ -143,8 +145,9 @@ class TestMain(unittest.TestCase):
     @patch('src.main.load_dropbox_credentials')
     @patch('src.main.get_google_credentials')
     @patch('os.remove')
+    @patch('os.path.exists')
     @patch('src.main.Migration')
-    def test_main_reauthentication_on_google_refresh_error(self, MockMigration, mock_os_remove, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
+    def test_main_reauthentication_on_google_refresh_error(self, MockMigration, mock_os_path_exists, mock_os_remove, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
         from google.auth.exceptions import RefreshError
 
         # First call to Migration raises RefreshError, second call succeeds
@@ -159,6 +162,7 @@ class TestMain(unittest.TestCase):
             'expired_creds',
             'new_creds'
         ]
+        mock_os_path_exists.return_value = True
 
         main([])
 
@@ -168,3 +172,16 @@ class TestMain(unittest.TestCase):
         self.assertEqual(mock_get_google_credentials.call_count, 2)
         # Verify that Migration was called twice
         self.assertEqual(MockMigration.call_count, 2)
+
+    @patch('src.main.get_config', return_value=('test_key', 'test_secret'))
+    @patch('src.main.setup_logger')
+    @patch('src.main.load_dropbox_credentials')
+    @patch('src.main.get_google_credentials')
+    @patch('src.main.Migration')
+    def test_main_ls_flag(self, MockMigration, mock_get_google_credentials, mock_load_dropbox_credentials, mock_setup_logger, mock_get_config):
+        mock_load_dropbox_credentials.return_value = 'test_token'
+        main(['--ls'])
+        mock_setup_logger.assert_called_once()
+        MockMigration.assert_called_once()
+        migration_instance = MockMigration.return_value
+        migration_instance.list_source_directory.assert_called_once()

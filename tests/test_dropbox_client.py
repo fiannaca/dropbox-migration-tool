@@ -25,7 +25,7 @@ class TestDropboxClient(unittest.TestCase):
         mock_result.has_more = False  # Explicitly set has_more to False
         self.mock_dbx.files_list_folder.return_value = mock_result
         
-        items = self.client.list_files_and_folders('/test_path')
+        items = self.client.list_files_and_folders('/test_path', recursive=True)
         self.mock_dbx.files_list_folder.assert_called_with('/test_path', recursive=True)
         self.assertEqual(items, ['file1', 'folder1'])
 
@@ -44,7 +44,7 @@ class TestDropboxClient(unittest.TestCase):
         self.mock_dbx.files_list_folder.return_value = mock_result1
         self.mock_dbx.files_list_folder_continue.return_value = mock_result2
 
-        items = self.client.list_files_and_folders('/test_path')
+        items = self.client.list_files_and_folders('/test_path', recursive=True)
 
         self.mock_dbx.files_list_folder.assert_called_once_with('/test_path', recursive=True)
         self.mock_dbx.files_list_folder_continue.assert_called_once_with('cursor123')

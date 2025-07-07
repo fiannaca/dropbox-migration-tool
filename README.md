@@ -85,6 +85,19 @@ python3 -m src.main
   ```bash
   python3 -m src.main --src "/My Dropbox Folder" --dest "My Google Drive Folder/Backup"
   ```
+- **Migrate a shared folder**:
+  ```bash
+  python3 -m src.main --src "ns:1234567890" --dest "My Shared Folder Backup"
+  ```
+
+## Migrating Shared Folders
+
+To migrate a shared folder, you need to use its unique **Namespace ID**.
+
+1.  Go to the Dropbox website and open the shared folder.
+2.  The URL in your browser's address bar will look something like this: `https://www.dropbox.com/work/your-team-name/browse/g-drive-migration/ns:1234567890`.
+3.  The Namespace ID is the part of the URL that starts with `ns:`. In this example, it is `ns:1234567890`.
+4.  Use this ID as the value for the `--src` flag.
 
 ## Troubleshooting
 

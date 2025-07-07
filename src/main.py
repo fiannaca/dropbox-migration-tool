@@ -29,6 +29,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Migrate files from Dropbox to Google Drive.")
     parser.add_argument('--dry_run', action='store_true', help='Generate a plan of files to be migrated without performing the migration.')
     parser.add_argument('--interactive', action='store_true', help='Run in interactive mode, confirming each folder.')
+    parser.add_argument('--ls', action='store_true', help='List files and folders in the source directory.')
     parser.add_argument('--src', type=str, default=None, help='The source directory path in Dropbox.')
     parser.add_argument('--dest', type=str, default=None, help='The destination directory path in Google Drive.')
     parser.add_argument('--limit', type=int, default=None, help='Limit the number of lines printed in a test run.')
@@ -66,6 +67,9 @@ def main(argv=None):
     while True:
         try:
             migration = Migration(dropbox_token, google_creds, src_path=args.src, dest_path=args.dest)
+            if args.ls:
+                migration.list_source_directory()
+                break
             migration.start(dry_run=args.dry_run, interactive=args.interactive, limit=args.limit)
             break # Exit the loop if migration completes successfully
         except dropbox.exceptions.AuthError as e:
