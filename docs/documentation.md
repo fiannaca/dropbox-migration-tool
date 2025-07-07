@@ -39,10 +39,19 @@ The tool requires API credentials for both Dropbox and Google Drive to function.
 4. From the "Settings" tab, get your "App key" and "App secret".
 
 ##### Google Drive
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project.
-2. Enable the "Google Drive API".
-3. Go to "Credentials", click "Create Credentials", and choose "OAuth client ID". Select "Desktop app".
-4. Download the credentials JSON file, rename it to `client_secrets.json`, and place it in the project's root directory.
+1.  **Create a Project**: Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project.
+2.  **Enable the API**: In your new project, go to **APIs & Services > Enabled APIs & services** and click **ENABLE APIS AND SERVICES**. Search for "Google Drive API" and enable it.
+3.  **Configure the OAuth Consent Screen**:
+    - Go to **APIs & Services > OAuth consent screen**.
+    - Choose **External** for the user type and click **Create**.
+    - Fill in the required app information (app name, user support email).
+    - On the "Scopes" page, click **Add or Remove Scopes**. Find the scope for the Google Drive API (`.../auth/drive`) and add it.
+    - On the "Test users" page, add the email addresses of any users who will be testing the application while it is in "test mode".
+4.  **Create Credentials**:
+    - Go to **APIs & Services > Credentials**.
+    - Click **Create Credentials** and choose **OAuth client ID**.
+    - Select **Desktop app** for the application type.
+    - After creation, download the JSON file. Rename it to `client_secrets.json` and place it in the root directory of this project.
 
 #### 2.3.2. Providing Credentials to the Tool
 
