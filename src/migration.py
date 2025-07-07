@@ -11,7 +11,10 @@ class Migration:
     def __init__(self, dropbox_token, google_credentials, src_path=None, dest_path=None, state_file='migration_state.json'):
         self.dropbox_client = DropboxClient(dropbox_token)
         self.google_drive_client = GoogleDriveClient(google_credentials)
-        self.src_path = src_path
+        if src_path and not src_path.startswith('/'):
+            self.src_path = '/' + src_path
+        else:
+            self.src_path = src_path
         self.dest_path = dest_path
         self.state_file = state_file
         self.state = self._load_state()
