@@ -340,9 +340,9 @@ class Migration:
         
         for item in items:
             if isinstance(item, dropbox.files.FolderMetadata):
-                print(f"[D] {item.name}")
+                print(f"./{item.name}/")
             else:
-                print(f"[F] {item.name}")
+                print(f"./{item.name}")
 
     def _get_unique_name(self, original_name, parent_folder_id):
         """Generates a unique file name if a conflict exists."""
