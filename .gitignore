@@ -1,4 +1,5 @@
 # Configuration files
+.env
 config.ini
 google_credentials.json
 google_token.json

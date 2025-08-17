@@ -13,7 +13,7 @@ class TestGoogleDriveAuth(unittest.TestCase):
         self.assertEqual(creds, mock_creds)
         mock_from_file.assert_called_with('google_token.json', ['https://www.googleapis.com/auth/drive'])
 
-    @patch('os.path.exists', side_effect=[False, True]) # token.json doesn't exist, client_secrets.json does
+    @patch('os.path.exists', side_effect=[False, True]) # token.json doesn't exist, google_credentials.json does
     @patch('google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file')
     def test_get_credentials_new_flow(self, mock_from_secrets, mock_exists):
         mock_flow = mock_from_secrets.return_value
@@ -23,7 +23,7 @@ class TestGoogleDriveAuth(unittest.TestCase):
         with patch('builtins.open', mock_file):
             creds = get_credentials()
             self.assertEqual(creds, mock_creds)
-            mock_from_secrets.assert_called_with('client_secrets.json', ['https://www.googleapis.com/auth/drive'])
+            mock_from_secrets.assert_called_with('google_credentials.json', ['https://www.googleapis.com/auth/drive'])
             mock_file.assert_called_with('google_token.json', 'w')
             mock_file().write.assert_called_with(mock_creds.to_json())
 

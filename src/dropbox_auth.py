@@ -4,6 +4,7 @@ import json
 import logging
 
 CREDENTIALS_FILE = 'dropbox_credentials.json'
+TEAM_CREDENTIALS_FILE = 'dropbox_team_credentials.json'
 
 def get_access_token(app_key, app_secret):
     """
@@ -25,17 +26,19 @@ def get_access_token(app_key, app_secret):
         logging.error('Error: %s' % (e,))
         return None
 
-def save_credentials(access_token, file_path='dropbox_credentials.json'):
+def save_credentials(access_token, team_account: bool = False):
     """
     Saves the access token to a file.
     """
+    file_path=CREDENTIALS_FILE if not team_account else TEAM_CREDENTIALS_FILE
     with open(file_path, 'w') as f:
         json.dump({'access_token': access_token}, f)
 
-def load_credentials(file_path='dropbox_credentials.json'):
+def load_credentials(team_account: bool = False):
     """
     Loads the access token from a file.
     """
+    file_path=CREDENTIALS_FILE if not team_account else TEAM_CREDENTIALS_FILE
     try:
         with open(file_path, 'r') as f:
             credentials = json.load(f)

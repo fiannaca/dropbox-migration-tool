@@ -5,7 +5,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 import logging
 
 TOKEN_PATH = 'google_token.json'
-CLIENT_SECRETS_PATH = 'client_secrets.json'
+CLIENT_SECRETS_PATH = 'google_credentials.json'
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def get_credentials():

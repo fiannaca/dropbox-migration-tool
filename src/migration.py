@@ -8,7 +8,7 @@ from src.dropbox_client import DropboxClient
 from src.google_drive_client import GoogleDriveClient
 
 class Migration:
-    def __init__(self, dropbox_token, google_credentials, src_path=None, dest_path=None, state_file='migration_state.json'):
+    def __init__(self, dropbox_token, google_credentials, src_path=None, dest_path=None, state_file='migration_state.json', team_folder_id=None):
         self.dropbox_client = DropboxClient(dropbox_token)
         self.google_drive_client = GoogleDriveClient(google_credentials)
         if src_path and not src_path.startswith('/'):
@@ -22,6 +22,7 @@ class Migration:
         self.migrated_in_session = 0
         self.failed_files = []
         self.conflict_resolution_strategy = None
+        self.team_folder_id = team_folder_id
 
     def _load_state(self):
         """Loads the migration state from a file."""
@@ -37,7 +38,7 @@ class Migration:
 
     def _sanitize_filename(self, filename):
         """Removes characters that are problematic for file systems."""
-        return re.sub(r"[\\/*?:\'\"<>|]", "_", filename)
+        return re.sub(r'[\\/*?:\'"<>|]', "_", filename)
 
     def start(self, dry_run=False, interactive=False, limit=None):
         """Starts the migration process."""
@@ -59,7 +60,7 @@ class Migration:
             dest_folder_id = self.google_drive_client.find_or_create_folder_path(self.dest_path)
             self.state['migrated_folders'][self.dest_path] = dest_folder_id
 
-        dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '')
+        dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '', team_folder_id=self.team_folder_id)
 
         if not dropbox_items:
             print("No items to migrate.")
@@ -90,6 +91,8 @@ class Migration:
             f"Total files to migrate: {self.total_files_to_migrate}\n"
             f"Total size: {total_size / 1e6:.2f} MB"
         )
+        if self.team_folder_id:
+            summary += f"\nTeam Folder ID: {self.team_folder_id}"
         if self.src_path:
             summary += f"\nSource path: {self.src_path}"
         if self.dest_path:
@@ -128,13 +131,15 @@ class Migration:
 
     def _generate_migration_plan(self, limit=None):
         """Generates and prints a plan of files to be migrated."""
-        dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '')
+        dropbox_items = self.dropbox_client.list_files_and_folders(path=self.src_path or '', team_folder_id=self.team_folder_id)
         files_to_migrate = [item for item in dropbox_items if isinstance(item, dropbox.files.FileMetadata) and item.path_display not in self.state['migrated_files']]
 
         summary = (
             f"--- Migration Plan Summary ---\n"
             f"Files to migrate: {len(files_to_migrate)}"
         )
+        if self.team_folder_id:
+            summary += f"\nTeam Folder ID: {self.team_folder_id}"
         if self.src_path:
             summary += f"\nSource path: {self.src_path}"
         if self.dest_path:
@@ -294,7 +299,7 @@ class Migration:
                     
                     sanitized_name = self._sanitize_filename(original_name)
                     local_path = f"/tmp/{sanitized_name}"
-                    if self.dropbox_client.download_file(file.path_display, local_path):
+                    if self.dropbox_client.download_file(file.path_display, local_path, team_folder_id=self.team_folder_id):
                         pbar.set_description(f"Uploading {original_name} ({file.size / 1e6:.2f} MB)")
                         file_id = self.google_drive_client.upload_file(local_path, file.name, folder_id=parent_folder_id)
                         if file_id:
@@ -333,7 +338,7 @@ class Migration:
     def list_source_directory(self):
         """Lists the contents of the source directory."""
         logging.info(f"Listing contents of Dropbox path: '{self.src_path or '/'}'")
-        items = self.dropbox_client.list_files_and_folders(path=self.src_path or '', recursive=False)
+        items = self.dropbox_client.list_files_and_folders(path=self.src_path or '', recursive=False, team_folder_id=self.team_folder_id)
         if not items:
             print("No items found in this directory.")
             return
@@ -343,6 +348,18 @@ class Migration:
                 print(f"./{item.name}/")
             else:
                 print(f"./{item.name}")
+
+    def list_team_folders(self):
+        """Lists all available team folders with their IDs."""
+        logging.info("Listing team folders...")
+        team_folders = self.dropbox_client.list_team_folders()
+        if not team_folders:
+            print("No team folders found.")
+            return
+        
+        print("Available team folders:")
+        for folder in team_folders:
+            print(f"- {folder.name} (ID: {folder.team_folder_id})")
 
     def _get_unique_name(self, original_name, parent_folder_id):
         """Generates a unique file name if a conflict exists."""

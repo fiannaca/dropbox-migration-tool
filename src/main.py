@@ -10,17 +10,21 @@ from src.google_drive_auth import get_credentials as get_google_credentials, TOK
 from src.migration import Migration
 from src.logger_config import setup_logger
 
-def get_config():
+def get_config(dropbox_team_account: bool = False):
     """
     Reads configuration from environment variables or config.ini.
     """
     config = configparser.ConfigParser()
     config.read('config.ini')
 
-    dropbox_app_key = os.environ.get('DROPBOX_APP_KEY') or config.get('dropbox', 'app_key', fallback=None)
-    dropbox_app_secret = os.environ.get('DROPBOX_APP_SECRET') or config.get('dropbox', 'app_secret', fallback=None)
+    config_id = 'dropboxteam' if dropbox_team_account else 'dropbox'
+    key_env_key = 'DROPBOX_TEAM_APP_KEY' if dropbox_team_account else 'DROPBOX_APP_KEY'
+    secret_env_key = 'DROPBOX_TEAM_APP_SECRET' if dropbox_team_account else 'DROPBOX_APP_SECRET'
+    dropbox_app_key = os.environ.get(key_env_key) or config.get(config_id, 'app_key', fallback=None)
+    dropbox_app_secret = os.environ.get(secret_env_key) or config.get(config_id, 'app_secret', fallback=None)
     
     return dropbox_app_key, dropbox_app_secret
+
 
 def main(argv=None):
     """
@@ -33,22 +37,24 @@ def main(argv=None):
     parser.add_argument('--src', type=str, default=None, help='The source directory path in Dropbox.')
     parser.add_argument('--dest', type=str, default=None, help='The destination directory path in Google Drive.')
     parser.add_argument('--limit', type=int, default=None, help='Limit the number of lines printed in a test run.')
+    parser.add_argument('--team', type=str, default=None, help='The ID of the Dropbox team to use.')
+    parser.add_argument('--list-teams', action='store_true', help='List available Dropbox team folders and their IDs.')
     args = parser.parse_args(argv)
 
     setup_logger()
     
-    dropbox_app_key, dropbox_app_secret = get_config()
+    dropbox_app_key, dropbox_app_secret = get_config(args.team is not None)
     if not dropbox_app_key or not dropbox_app_secret:
         logging.error("Dropbox API credentials not found. Please set them in config.ini or as environment variables.")
         sys.exit(1)
 
     # --- Dropbox Authentication ---
-    dropbox_token = load_dropbox_credentials()
+    dropbox_token = load_dropbox_credentials(args.team is not None)
     if not dropbox_token:
         logging.info("Authenticating with Dropbox...")
         dropbox_token = get_dropbox_token(dropbox_app_key, dropbox_app_secret)
         if dropbox_token:
-            save_dropbox_credentials(dropbox_token)
+            save_dropbox_credentials(dropbox_token, args.team is not None)
             logging.info("Dropbox authentication successful.")
         else:
             logging.error("Dropbox authentication failed. Exiting.")
@@ -66,7 +72,10 @@ def main(argv=None):
     # --- Start Migration ---
     while True:
         try:
-            migration = Migration(dropbox_token, google_creds, src_path=args.src, dest_path=args.dest)
+            migration = Migration(dropbox_token, google_creds, src_path=args.src, dest_path=args.dest, team_folder_id=args.team)
+            if args.list_teams:
+                migration.list_team_folders()
+                break
             if args.ls:
                 migration.list_source_directory()
                 break

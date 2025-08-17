@@ -16,13 +16,15 @@ class TestDropboxClient(unittest.TestCase):
 
     def setUp(self):
         self.mock_dbx = MagicMock()
-        self.client = DropboxClient('test_token')
-        self.client.dbx = self.mock_dbx
+        self.mock_dbx_team = MagicMock()
+        with patch('dropbox.Dropbox', return_value=self.mock_dbx), \
+             patch('dropbox.DropboxTeam', return_value=self.mock_dbx_team):
+            self.client = DropboxClient('test_token')
 
     def test_list_files_and_folders_success(self):
         mock_result = MagicMock()
         mock_result.entries = ['file1', 'folder1']
-        mock_result.has_more = False  # Explicitly set has_more to False
+        mock_result.has_more = False
         self.mock_dbx.files_list_folder.return_value = mock_result
         
         items = self.client.list_files_and_folders('/test_path', recursive=True)
@@ -30,13 +32,11 @@ class TestDropboxClient(unittest.TestCase):
         self.assertEqual(items, ['file1', 'folder1'])
 
     def test_list_files_and_folders_with_pagination(self):
-        # Mock the first page of results
         mock_result1 = MagicMock()
         mock_result1.entries = ['file1', 'folder1']
         mock_result1.has_more = True
         mock_result1.cursor = 'cursor123'
         
-        # Mock the second page of results
         mock_result2 = MagicMock()
         mock_result2.entries = ['file2', 'folder2']
         mock_result2.has_more = False
@@ -64,6 +64,28 @@ class TestDropboxClient(unittest.TestCase):
         self.mock_dbx.files_download_to_file.side_effect = dropbox.exceptions.ApiError('request_id', 'error', 'user_message_text', 'user_message_locale')
         with self.assertRaises(dropbox.exceptions.ApiError):
             self.client.download_file('/dbx_path', '/local_path')
+
+    def test_list_team_folders_success(self):
+        mock_result = MagicMock()
+        mock_result.team_folders = ['folder1', 'folder2']
+        self.mock_dbx_team.team_folder_list.return_value = mock_result
+        
+        folders = self.client.list_team_folders()
+        self.assertEqual(folders, ['folder1', 'folder2'])
+
+    def test_list_team_folders_failure(self):
+        self.mock_dbx_team.team_folder_list.side_effect = dropbox.exceptions.ApiError('request_id', 'error', 'user_message_text', 'user_message_locale')
+        with self.assertRaises(dropbox.exceptions.ApiError):
+            self.client.list_team_folders()
+
+    def test_with_path_root(self):
+        mock_dbx_with_path_root = MagicMock()
+        self.mock_dbx.with_path_root.return_value = mock_dbx_with_path_root
+        
+        self.client.list_files_and_folders('/test_path', team_folder_id='12345')
+        
+        self.mock_dbx.with_path_root.assert_called_once()
+        mock_dbx_with_path_root.files_list_folder.assert_called_with('/test_path', recursive=False)
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,7 +6,7 @@ def setup_logger():
     Configures the logger to write to a file and the console.
     """
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler("migration.log")

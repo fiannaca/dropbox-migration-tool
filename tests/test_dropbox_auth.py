@@ -40,9 +40,9 @@ class TestDropboxAuth(unittest.TestCase):
     def test_save_and_load_credentials(self):
         m = mock_open()
         with patch('builtins.open', m):
-            save_credentials('test_token', 'test_credentials.json')
+            save_credentials('test_token', False)
         
-        m.assert_called_once_with('test_credentials.json', 'w')
+        m.assert_called_once_with('dropbox_credentials.json', 'w')
         handle = m()
         
         # Get all the write calls and join them
@@ -51,15 +51,26 @@ class TestDropboxAuth(unittest.TestCase):
 
         m = mock_open(read_data='{"access_token": "test_token"}')
         with patch('builtins.open', m):
-            token = load_credentials('test_credentials.json')
+            token = load_credentials('dropbox_credentials.json')
             self.assertEqual(token, 'test_token')
-    
-    def test_load_credentials_file_not_found(self):
+
+    def test_save_and_load_team_credentials(self):
         m = mock_open()
-        m.side_effect = FileNotFoundError
         with patch('builtins.open', m):
-            token = load_credentials('non_existent_file.json')
-            self.assertIsNone(token)
+            save_credentials('test_token', True)
+        
+        m.assert_called_once_with('dropbox_team_credentials.json', 'w')
+        handle = m()
+        
+        # Get all the write calls and join them
+        written_data = "".join(call.args[0] for call in handle.write.call_args_list)
+        self.assertEqual(written_data, json.dumps({'access_token': 'test_token'}))
+
+        m = mock_open(read_data='{"access_token": "test_token"}')
+        with patch('builtins.open', m):
+            token = load_credentials('dropbox_team_credentials.json')
+            self.assertEqual(token, 'test_token')
+
 
 if __name__ == '__main__':
     unittest.main()

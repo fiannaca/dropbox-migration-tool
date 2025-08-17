@@ -7,53 +7,64 @@ The goal of this project is to create a command-line utility that facilitates th
 ## Steps
 
 1.  **API Research**:
-    *   Thoroughly read the Dropbox API documentation, with a focus on file and folder operations.
-    *   Thoroughly read the Google Drive API documentation, with a focus on file and folder operations.
-    *   Identify the specific API endpoints and scopes required for the migration.
+
+    - Thoroughly read the Dropbox API documentation, with a focus on file and folder operations.
+    - Thoroughly read the Google Drive API documentation, with a focus on file and folder operations.
+    - Identify the specific API endpoints and scopes required for the migration.
 
 2.  **Project Setup**:
-    *   Initialize a new project repository.
-    *   Choose a programming language and package manager (e.g., Python with Pip, Node.js with NPM).
-    *   Create a basic project structure (`src`, `docs`, `tests`).
+
+    - Initialize a new project repository.
+    - Choose a programming language and package manager (e.g., Python with Pip, Node.js with NPM).
+    - Create a basic project structure (`src`, `docs`, `tests`).
 
 3.  **Authentication**:
-    *   Implement the OAuth 2.0 authorization flow for the Dropbox API.
-    *   Implement the OAuth 2.0 authorization flow for the Google Drive API.
-    *   Securely store and manage API credentials and user access/refresh tokens.
+
+    - Implement the OAuth 2.0 authorization flow for the Dropbox API.
+    - Implement the OAuth 2.0 authorization flow for the Google Drive API.
+    - Securely store and manage API credentials and user access/refresh tokens.
 
 4.  **Dropbox Client**:
-    *   Develop a module to interact with the Dropbox API.
-    *   Implement a function to list all files and folders recursively.
-    *   Implement a function to download a single file.
+
+    - Develop a module to interact with the Dropbox API.
+    - Implement a function to list all files and folders recursively.
+    - Implement a function to download a single file.
 
 5.  **Google Drive Client**:
-    *   Develop a module to interact with the Google Drive API.
-    *   Implement a function to create a folder.
-    *   Implement a function to upload a file into a specified folder.
+
+    - Develop a module to interact with the Google Drive API.
+    - Implement a function to create a folder.
+    - Implement a function to upload a file into a specified folder.
 
 6.  **Migration Logic**:
-    *   Create the core logic that orchestrates the migration.
-    *   Traverse the Dropbox file tree.
-    *   For each Dropbox folder, create a corresponding folder in Google Drive.
-    *   For each Dropbox file, download it and upload it to the correct folder in Google Drive.
+
+    - Create the core logic that orchestrates the migration.
+    - Traverse the Dropbox file tree.
+    - For each Dropbox folder, create a corresponding folder in Google Drive.
+    - For each Dropbox file, download it and upload it to the correct folder in Google Drive.
 
 7.  **State Management**:
-    *   Implement a mechanism to track the migration progress (e.g., using a local JSON file or a simple database).
-    *   Before migrating an item, check if it has already been successfully migrated.
-    *   Update the state file after each successful file or folder migration.
+
+    - Implement a mechanism to track the migration progress (e.g., using a local JSON file or a simple database).
+    - Before migrating an item, check if it has already been successfully migrated.
+    - Update the state file after each successful file or folder migration.
 
 8.  **User Interface (CLI)**:
-    *   Build a command-line interface.
-    *   Create commands to:
-        *   Initiate the authentication process for both services.
-        *   Start the migration process.
-        *   Show migration status and progress.
+
+    - Build a command-line interface.
+    - Create commands to:
+      - Initiate the authentication process for both services.
+      - Start the migration process.
+      - Show migration status and progress.
 
 9.  **Error Handling and Logging**:
-    *   Implement comprehensive error handling for API requests, network issues, and file I/O.
-    *   Add logging to a file to help with debugging.
 
-10.  **Documentation**:
+    - Implement comprehensive error handling for API requests, network issues, and file I/O.
+    - Add logging to a file to help with debugging.
+
+10. **Documentation**:
+
+
     *   Write a `README.md` file with clear instructions on how to:
         *   Set up the project.
         *   Obtain API keys from both Dropbox and Google.
@@ -76,15 +87,15 @@ The goal of this project is to create a command-line utility that facilitates th
 
 When a file or folder with the same name already exists in the destination Google Drive folder, the following strategies will be used:
 
-*   **Folders**: If a folder with the same name exists, the tool will assume it is the same folder and use it as the destination for files within that folder. This effectively merges the contents.
-*   **Files**: If a file with the same name exists, the user will be prompted to choose one of the following options:
-    1.  **Overwrite**: Replace the existing file in Google Drive with the one from Dropbox.
-    2.  **Rename**: Upload the Dropbox file but add a suffix to the name (e.g., `filename (1).txt`).
-    3.  **Skip**: Do not migrate the file.
+- **Folders**: If a folder with the same name exists, the tool will assume it is the same folder and use it as the destination for files within that folder. This effectively merges the contents.
+- **Files**: If a file with the same name exists, the user will be prompted to choose one of the following options:
+  1.  **Overwrite**: Replace the existing file in Google Drive with the one from Dropbox.
+  2.  **Rename**: Upload the Dropbox file but add a suffix to the name (e.g., `filename (1).txt`).
+  3.  **Skip**: Do not migrate the file.
 
-## Test Run Feature
+## Dry Run Feature
 
-To allow users to verify the migration process on a small scale before committing to a full migration, a `--test_run` flag is available. When this flag is used, the tool will:
+To allow users to verify the migration process on a small scale before committing to a full migration, a `--dry_run` flag is available. When this flag is used, the tool will:
 
 1.  Identify the first 10 files that have not yet been migrated.
 2.  Migrate these files one by one.
@@ -97,9 +108,9 @@ For users who want more control over the migration process, an `--interactive` f
 
 1.  Before migrating each folder, pause and list the files that are about to be migrated within that folder.
 2.  Wait for the user to choose one of the following options:
-    *   **Enter**: Proceed with migrating the folder.
-    *   **s**: Skip the current folder and all its contents.
-    *   **Esc**: Quit the migration immediately.
+    - **Enter**: Proceed with migrating the folder.
+    - **s**: Skip the current folder and all its contents.
+    - **Esc**: Quit the migration immediately.
 3.  Skipped folders will be recorded in the state file to ensure they are not re-migrated on subsequent runs.
 4.  If the user quits, the current state of the migration will be saved.
 5.  The `--interactive` and `--test_run` flags are mutually exclusive and will result in an error if used together.
@@ -108,11 +119,11 @@ For users who want more control over the migration process, an `--interactive` f
 
 To handle API rate limits and other transient network errors, the application will implement an exponential backoff strategy.
 
-*   **Exponential Backoff**: When an API request fails with a rate limit error (e.g., HTTP 429) or a server-side error (e.g., HTTP 5xx), the tool will automatically:
-    1.  Wait for a short, randomized interval.
-    2.  Retry the request.
-    3.  If the request fails again, it will double the waiting period and repeat, up to a maximum number of retries.
-*   **Implementation**: This will be implemented as a reusable Python decorator that can be applied to any function making an API call.
+- **Exponential Backoff**: When an API request fails with a rate limit error (e.g., HTTP 429) or a server-side error (e.g., HTTP 5xx), the tool will automatically:
+  1.  Wait for a short, randomized interval.
+  2.  Retry the request.
+  3.  If the request fails again, it will double the waiting period and repeat, up to a maximum number of retries.
+- **Implementation**: This will be implemented as a reusable Python decorator that can be applied to any function making an API call.
 
 ## Directory Listing Feature
 
@@ -122,3 +133,10 @@ To help users identify the correct paths for the `--src` flag, a `--ls` flag is 
 2.  The listing will not be recursive.
 3.  The tool will then exit without performing any migration.
 
+## Team Folder Support
+
+For Dropbox Business accounts, the tool supports migrating from team folders.
+
+-   **Listing Team Folders**: To see a list of available team folders and their corresponding IDs, the user can run the tool with the `--list_teams` flag.
+-   **Migrating a Team Folder**: To migrate a specific team folder, the user must provide the team folder ID in the `--team` flag. They can also provide a sub-folder path within the team folder using the `--src` flag.
+-   **Authentication**: The user must have sufficient permissions to access the team folders. The provided Dropbox access token must have the `team_data.member` scope.

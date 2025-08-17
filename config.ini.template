@@ -2,6 +2,10 @@
 app_key = YOUR_DROPBOX_APP_KEY
 app_secret = YOUR_DROPBOX_APP_SECRET
 
+[dropboxteam]
+app_key = YOUR_DROPBOX_TEAM_APP_KEY
+app_secret = YOUR_DROPBOX_TEAM_APP_SECRET
+
 [google]
 # The credentials for Google are handled by the google_credentials.json file.
 # This section is a placeholder for any future Google-related configuration.

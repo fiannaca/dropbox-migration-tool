@@ -177,7 +177,7 @@ class TestMigration(unittest.TestCase):
         migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
         migration.start()
 
-        mock_dbx_client.download_file.assert_called_once_with(f'/{original_name}', f'/tmp/{sanitized_name}')
+        mock_dbx_client.download_file.assert_called_once_with(f'/{original_name}', f'/tmp/{sanitized_name}', team_folder_id=None)
         mock_gdrive_client.upload_file.assert_called_once_with(f'/tmp/{sanitized_name}', original_name, folder_id=None)
 
     @patch('builtins.print')
@@ -395,7 +395,7 @@ class TestMigrationWithSrcDestFlags(unittest.TestCase):
         migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/Apps/MyApp', state_file=TEST_STATE_FILE)
         migration.start()
 
-        mock_dbx_client.list_files_and_folders.assert_called_once_with(path='/Apps/MyApp')
+        mock_dbx_client.list_files_and_folders.assert_called_once_with(path='/Apps/MyApp', team_folder_id=None)
         mock_gdrive_client.create_folder.assert_called_once_with('Photos', parent_id=None)
         mock_gdrive_client.upload_file.assert_called_once_with('/tmp/image.jpg', 'image.jpg', folder_id='folder_id_123')
 
@@ -451,10 +451,69 @@ class TestMigrationWithSrcDestFlags(unittest.TestCase):
         migration = Migration('fake_dbx_token', 'fake_gdrive_creds', src_path='/Apps/MyApp', dest_path='MyCoolFolder/Backup', state_file=TEST_STATE_FILE)
         migration.start()
 
-        mock_dbx_client.list_files_and_folders.assert_called_once_with(path='/Apps/MyApp')
+        mock_dbx_client.list_files_and_folders.assert_called_once_with(path='/Apps/MyApp', team_folder_id=None)
         mock_gdrive_client.find_or_create_folder_path.assert_called_once_with('MyCoolFolder/Backup')
         mock_gdrive_client.create_folder.assert_called_once_with('Photos', parent_id='dest_folder_id')
         mock_gdrive_client.upload_file.assert_called_once_with('/tmp/image.jpg', 'image.jpg', folder_id='folder_id_123')
 
-if __name__ == '__main__':
-    unittest.main()
+class TestMigrationWithTeamFlag(unittest.TestCase):
+
+    def setUp(self):
+        self.mock_state = {
+            'migrated_files': [], 
+            'skipped_files': [], 
+            'migrated_folders': {'/': None}, 
+            'skipped_folders': []
+        }
+
+    def tearDown(self):
+        if os.path.exists(TEST_STATE_FILE):
+            os.remove(TEST_STATE_FILE)
+
+    @patch('builtins.input', return_value='y')
+    @patch('src.migration.tqdm')
+    @patch('src.migration.Migration._save_state')
+    @patch('src.migration.Migration._load_state')
+    @patch('os.remove')
+    @patch('src.migration.GoogleDriveClient')
+    @patch('src.migration.DropboxClient')
+    def test_migration_with_team_flag(self, MockDropboxClient, MockGoogleDriveClient, mock_os_remove, mock_load_state, mock_save_state, mock_tqdm, mock_input):
+        mock_load_state.return_value = self.mock_state
+        mock_dbx_client = MockDropboxClient.return_value
+        mock_dbx_client.list_files_and_folders.return_value = [
+            dropbox.files.FileMetadata(name='team_file.txt', path_display='/team_file.txt', size=100),
+        ]
+        mock_dbx_client.download_file.return_value = True
+        mock_gdrive_client = MockGoogleDriveClient.return_value
+        mock_gdrive_client.find_file.return_value = []
+        mock_gdrive_client.upload_file.return_value = 'file_id_456'
+
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', team_folder_id='12345', state_file=TEST_STATE_FILE)
+        migration.start()
+
+        mock_dbx_client.list_files_and_folders.assert_called_once_with(path='', team_folder_id='12345')
+        mock_dbx_client.download_file.assert_called_once_with('/team_file.txt', '/tmp/team_file.txt', team_folder_id='12345')
+        mock_gdrive_client.upload_file.assert_called_once_with('/tmp/team_file.txt', 'team_file.txt', folder_id=None)
+
+    @patch('builtins.print')
+    @patch('src.migration.Migration._load_state')
+    @patch('src.migration.GoogleDriveClient')
+    @patch('src.migration.DropboxClient')
+    def test_list_team_folders(self, MockDropboxClient, MockGoogleDriveClient, mock_load_state, mock_print):
+        mock_load_state.return_value = self.mock_state
+        mock_dbx_client = MockDropboxClient.return_value
+        mock_folder1 = MagicMock()
+        mock_folder1.name = 'Folder 1'
+        mock_folder1.team_folder_id = '123'
+        mock_folder2 = MagicMock()
+        mock_folder2.name = 'Folder 2'
+        mock_folder2.team_folder_id = '456'
+        mock_dbx_client.list_team_folders.return_value = [mock_folder1, mock_folder2]
+
+        migration = Migration('fake_dbx_token', 'fake_gdrive_creds', state_file=TEST_STATE_FILE)
+        migration.list_team_folders()
+
+        mock_print.assert_any_call("Available team folders:")
+        mock_print.assert_any_call("- Folder 1 (ID: 123)")
+        mock_print.assert_any_call("- Folder 2 (ID: 456)")
+
